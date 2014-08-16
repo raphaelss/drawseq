@@ -1,3 +1,5 @@
 drawseq
 *.o
+*.pdf
+*.png
 

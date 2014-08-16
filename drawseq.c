@@ -1,8 +1,10 @@
 #include <stdio.h>
+#include <string.h>
 #include <ctype.h>
 #include <math.h>
 #include <stdlib.h>
 #include "draw.h"
+#include <getopt.h>
 
 #define STACK_ALLOC 20
 
@@ -15,101 +17,67 @@ struct global_state {
   struct state *stack;
   struct state current;
   unsigned stack_n, stack_max, d_count, u_count;
-  double origin_x, origin_y, scale;
 };
 
-int init_global_state(struct global_state *gs, double x, double y,
-                      double scale);
+const char* read_options(struct draw_dev_conf* conf, int argc, char **argv,
+                         double* scale);
+int init_global_state(struct global_state *gs);
 void release_global_state(struct global_state *gs);
 int push_state(struct global_state *gs);
 int pop_state(struct global_state *gs);
 void update_state(struct state *s, double dist);
-void update_state_draw(struct global_state *gs, struct draw_dev *dr);
-int do_char(int ch, struct global_state *gs, struct draw_dev *dr);
+void update_state_draw(struct global_state *gs, struct draw_dev *dr,
+                       double scale);
+int do_char(int ch, struct global_state *gs, struct draw_dev *dr,
+            double scale);
 
 int main(int argc, char **argv)
 {
-  if(argc != 9) {
-    fprintf(stderr, "Usage: %s output_file width height origin_x origin_y "
-                    "scale line_width line_cap\n", argv[0]);
+  struct draw_dev_conf conf;
+  draw_dev_conf_default(&conf);
+  double scale = 2;
+  const char* filepath = read_options(&conf, argc, argv, &scale);
+  if(!filepath) {
+    puts("Usage:");
     return 1;
   }
-  double width = atof(argv[2]);
-  if(width <= 0) {
-    fputs("Invalid width\n", stderr);
-    return 1;
-  }
-  double height = atof(argv[3]);
-  if(height <= 0) {
-    fputs("Invalid height\n", stderr);
-    return 1;
-  }
-  double origin_x = atof(argv[4]);
-  if(origin_x < 0) {
-    fputs("Invalid origin_x\n", stderr);
-    return 1;
-  }
-  double origin_y = atof(argv[5]);
-  if(origin_y < 0) {
-    fputs("Invalid origin_y\n", stderr);
-    return 1;
-  }
-  double scale = atof(argv[6]);
-  if(scale < 0) {
-    fputs("Invalid scale\n", stderr);
-    return 1;
-  }
-  double line_width = atof(argv[7]);
-  if(line_width <= 0) {
-    fputs("Invalid line_width\n", stderr);
-    return 1;
-  }
-  int line_cap = atoi(argv[8]);
-  if(line_cap < 0 || line_cap > 2) {
-    fputs("Invalid line_cap\n", stderr);
-    return 1;
-  }
-
   struct global_state gs;
-  if(init_global_state(&gs, origin_x, origin_y, scale)) {
+  if(init_global_state(&gs)) {
     fputs("Memory allocation error while creating global state", stderr);
     return 1;
   }
-  struct draw_dev dr;
-  if(draw_init(&dr, argv[1], width, height, line_width, line_cap)) {
+  struct draw_dev* dr = draw_init(filepath, &conf);
+  if(!dr) {
     fputs("Error initializing drawing system", stderr);
     release_global_state(&gs);
     return 1;
   }
-  draw_move_to(&dr, origin_x, origin_y);
   int ch;
   while((ch = getchar()) != EOF) {
-    if(do_char(ch, &gs, &dr)) {
+    if(do_char(ch, &gs, dr, scale)) {
       break;
     }
   }
-  update_state_draw(&gs, &dr);
-  draw_release(&dr);
+  update_state_draw(&gs, dr, scale);
+  draw_release(dr);
   release_global_state(&gs);
+  //Cleans up some valgrind still-reachable errors
+  //cairo_debug_reset_static_data();
   return 0;
 }
 
-int init_global_state(struct global_state *gs, double x, double y,
-                      double scale)
+int init_global_state(struct global_state *gs)
 {
   if(!(gs->stack = malloc(sizeof(struct state) * STACK_ALLOC))) {
     return 1;
   }
-  gs->origin_x = x;
-  gs->origin_y = y;
-  gs->current.x = x;
-  gs->current.y = y;
+  gs->current.x = 0;
+  gs->current.y = 0;
   gs->current.angle = 0;
   gs->stack_n = 0;
   gs->stack_max = STACK_ALLOC;
   gs->d_count = 0;
   gs->u_count = 0;
-  gs->scale = scale;
   return 0;
 }
 
@@ -165,31 +133,33 @@ void update_state(struct state *s, double dist)
   return;
 }
 
-void update_state_draw(struct global_state *gs, struct draw_dev *dr)
+void update_state_draw(struct global_state *gs, struct draw_dev *dr,
+                       double scale)
 {
   if(gs->d_count > 0) {
-    update_state(&gs->current, gs->d_count * gs->scale);
+    update_state(&gs->current, gs->d_count * scale);
     draw_line_to(dr, gs->current.x, gs->current.y);
     gs->d_count = 0;
   } else if (gs->u_count > 0) {
-    update_state(&gs->current, gs->u_count * gs->scale);
+    update_state(&gs->current, gs->u_count * scale);
     draw_move_to(dr, gs->current.x, gs->current.y);
     gs->u_count = 0;
   }
 }
 
-int do_char(int ch, struct global_state *gs, struct draw_dev *dr)
+int do_char(int ch, struct global_state *gs, struct draw_dev *dr,
+            double scale)
 {
   switch(ch) {
   case 'd':
     if(gs->u_count != 0) {
-      update_state_draw(gs, dr);
+      update_state_draw(gs, dr, scale);
     }
     ++gs->d_count;
     return 0;
   case 'u':
     if(gs->d_count != 0) {
-      update_state_draw(gs, dr);
+      update_state_draw(gs, dr, scale);
     }
     ++gs->u_count;
     return 0;
@@ -197,13 +167,13 @@ int do_char(int ch, struct global_state *gs, struct draw_dev *dr)
   if(isspace(ch)) {
     return 0;
   }
-  update_state_draw(gs, dr);
+  update_state_draw(gs, dr, scale);
   switch(ch) {
   case 'r':
     gs->current.angle = 0; //fall through intentional
   case 'o':
-    gs->current.x = gs->origin_x;
-    gs->current.y = gs->origin_y;
+    gs->current.x = 0;
+    gs->current.y = 0;
     draw_move_to(dr, gs->current.x, gs->current.y);
     break;
   case '[':
@@ -228,3 +198,76 @@ int do_char(int ch, struct global_state *gs, struct draw_dev *dr)
   return 0;
 }
 
+const char* read_options(struct draw_dev_conf* conf, int argc, char **argv,
+                         double* scale)
+{
+  static struct option opts [] = {
+    {"help", no_argument, NULL, 1},
+    {"o", required_argument, NULL, 2},
+    {"width", required_argument, NULL, 3},
+    {"height", required_argument, NULL, 4},
+    {"scale", required_argument, NULL, 5},
+    {"origin_x", required_argument, NULL, 6},
+    {"origin_y", required_argument, NULL, 7},
+    {"line_width", required_argument, NULL, 8},
+    {"line_cap", required_argument, NULL, 9},
+    {0,0,0,0}
+  };
+  const char* filepath = NULL;
+  int c;
+  while((c = getopt_long_only(argc, argv, "", opts, NULL)) != -1) {
+    switch(c) {
+    case 1:
+      return NULL;
+    case 2:
+      filepath = optarg;
+      break;
+    case 3:
+      conf->width = atoi(optarg);
+      if(!conf->width) {
+        puts("Invalid width");
+        return NULL;
+      }
+      break;
+    case 4:
+      conf->height = atoi(optarg);
+      if(!conf->height) {
+        puts("Invalid height");
+        return NULL;
+      }
+      break;
+    case 5:
+      *scale = atof(optarg);
+      if(!*scale) {
+        puts("Invalid scale");
+        return NULL;
+      }
+      break;
+    case 6:
+      conf->origin_x = atof(optarg);
+      break;
+    case 7:
+      conf->origin_y = atof(optarg);
+      break;
+    case 8:
+      conf->line_width = atof(optarg);
+      if(!conf->line_width) {
+        puts("Invalid line_width");
+        return NULL;
+      }
+      break;
+    case 9:
+      if(!(strncmp("normal", optarg, 6))) {
+        conf->line_cap = DRAW_DEV_CAP_BUTT;
+      } else if(!(strncmp("round", optarg, 5))) {
+        conf->line_cap = DRAW_DEV_CAP_ROUND;
+      } else if(!(strncmp("square", optarg, 5))) {
+        conf->line_cap = DRAW_DEV_CAP_SQUARE;
+      } else {
+        puts("Invalid line_cap (possible values are: normal round square");
+        return NULL;
+      }
+    }
+  }
+  return filepath;
+}

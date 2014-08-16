@@ -1,4 +1,4 @@
-FLAGS = -std=c99 -Wall -pedantic -O3 -flto `pkg-config --cflags cairo`
+FLAGS = -std=c99 -Wall -pedantic -g `pkg-config --cflags cairo`
 LIBS = -lm `pkg-config --libs cairo`
 CC = gcc
 EXE = drawseq
