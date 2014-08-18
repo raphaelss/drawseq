@@ -1,3 +1,25 @@
+/***
+*  letdraw: command-line drawing tool
+*    - see README.mdown for instructions
+*
+*  Copyright (C) 2014  Raphael Sousa Santos, http://www.raphaelss.com/
+*
+*  This file is part of letdraw.
+*
+*  Letdraw is free software: you can redistribute it and/or modify
+*  it under the terms of the GNU General Public License as published by
+*  the Free Software Foundation, either version 3 of the License, or
+*  (at your option) any later version.
+*
+*  This program is distributed in the hope that it will be useful,
+*  but WITHOUT ANY WARRANTY; without even the implied warranty of
+*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+*  GNU General Public License for more details.
+*
+*  You should have received a copy of the GNU General Public License
+*  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+***/
+
 #include "draw.h"
 #include <cairo-pdf.h>
 #include <string.h>
@@ -6,7 +28,6 @@
 struct draw_dev {
   cairo_surface_t *surface;
   cairo_t *cr;
-  double origin_x, origin_y;
   enum {DRAW_DEV_PDF, DRAW_DEV_PNG} type;
   char *filepath;
 };
@@ -15,13 +36,11 @@ void draw_dev_conf_default(struct draw_dev_conf* c)
 {
   c->width = 800;
   c->height = 600;
-  c->origin_x = 0;
-  c->origin_y = 0;
   c->line_width = 2.0;
   c->line_cap = DRAW_DEV_CAP_BUTT;
 }
 
-struct draw_dev* draw_init(const char *filepath, struct draw_dev_conf *c)
+struct draw_dev* draw_init(const char *filepath, const struct draw_dev_conf *c)
 {
   unsigned length = strlen(filepath);
   if(length < 5) {
@@ -31,7 +50,7 @@ struct draw_dev* draw_init(const char *filepath, struct draw_dev_conf *c)
   if(!d) {
     return NULL;
   }
-  const char *ending = filepath + length - 4;
+  const char* ending = filepath + length - 4;
   if(strstr(filepath, ".pdf") == ending) {
     d->surface = cairo_pdf_surface_create(filepath, c->width, c->height);
     d->type = DRAW_DEV_PDF;
@@ -51,7 +70,6 @@ struct draw_dev* draw_init(const char *filepath, struct draw_dev_conf *c)
   if(cairo_status(d->cr) != CAIRO_STATUS_SUCCESS) {
     cairo_surface_destroy(d->surface);
     free(d);
-    return NULL;
   }
   cairo_set_source_rgb(d->cr, 1, 1, 1);
   cairo_paint(d->cr);
@@ -81,20 +99,17 @@ struct draw_dev* draw_init(const char *filepath, struct draw_dev_conf *c)
     return NULL;
   }
   strcpy(d->filepath,filepath);
-  cairo_move_to(d->cr, c->origin_x, c->origin_y);
-  d->origin_x = c->origin_x;
-  d->origin_y = c->origin_y;
   return d;
 }
 
 void draw_line_to(struct draw_dev *d, double x, double y)
 {
-  cairo_line_to(d->cr, x+d->origin_x, y+d->origin_y);
+  cairo_line_to(d->cr, x, y);
 }
 
 void draw_move_to(struct draw_dev *d, double x, double y)
 {
-  cairo_move_to(d->cr, x+d->origin_x, y+d->origin_y);
+  cairo_move_to(d->cr, x, y);
 }
 
 void draw_release(struct draw_dev *d)
