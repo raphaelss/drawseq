@@ -22,24 +22,31 @@
 
 #ifndef DRAW_H_INCLUDED__
 #define DRAW_H_INCLUDED__
-#include <cairo.h>
-
 struct draw_dev;
+
+enum draw_line_cap {
+  DRAW_DEV_CAP_BUTT,
+  DRAW_DEV_CAP_ROUND,
+  DRAW_DEV_CAP_SQUARE
+};
+
+enum draw_line_join {
+  DRAW_DEV_JOIN_MITER,
+  DRAW_DEV_JOIN_ROUND,
+  DRAW_DEV_JOIN_BEVEL,
+};
 
 struct draw_dev_conf {
   unsigned width, height;
-  double line_width;
-  enum {
-    DRAW_DEV_CAP_BUTT,
-    DRAW_DEV_CAP_ROUND,
-    DRAW_DEV_CAP_SQUARE
-  } line_cap;
+  double line_width, origin_x, origin_y;
+  enum draw_line_cap line_cap;
+  enum draw_line_join line_join;
 };
 
 void draw_dev_conf_default(struct draw_dev_conf* c);
-struct draw_dev* draw_init(const char* filepath, const struct draw_dev_conf* c);
+struct draw_dev* draw_init(const struct draw_dev_conf* c);
 void draw_line_to(struct draw_dev* d, double x, double y);
 void draw_move_to(struct draw_dev* d, double x, double y);
-void draw_release(struct draw_dev* d);
+void draw_finish(struct draw_dev* d, const char* filepath);
 
 #endif

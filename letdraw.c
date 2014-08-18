@@ -39,7 +39,7 @@ struct global_state {
   struct state *stack;
   struct state current;
   unsigned stack_n, stack_max, d_count, u_count;
-  double scale, origin_x, origin_y;
+  double scale;
 };
 
 void usage(void);
@@ -78,7 +78,7 @@ int main(int argc, char **argv)
     }
     return 1;
   }
-  struct draw_dev* dr = draw_init(filepath, &conf);
+  struct draw_dev* dr = draw_init(&conf);
   if(!dr) {
     fputs("Error initializing drawing system", stderr);
     release_global_state(&gs);
@@ -87,7 +87,6 @@ int main(int argc, char **argv)
     }
     return 1;
   }
-  draw_move_to(dr, gs.origin_x, gs.origin_y);
   int ch;
   while((ch = getc(fin)) != EOF) {
     if(do_char(ch, &gs, dr)) {
@@ -95,7 +94,7 @@ int main(int argc, char **argv)
     }
   }
   update_state_draw(&gs, dr);
-  draw_release(dr);
+  draw_finish(dr, filepath);
   release_global_state(&gs);
   if(infile) {
     fclose(fin);
@@ -110,8 +109,8 @@ int init_global_state(struct global_state *gs)
   if(!(gs->stack = malloc(sizeof(struct state) * STACK_ALLOC))) {
     return 1;
   }
-  gs->current.x = gs->origin_x;
-  gs->current.y = gs->origin_y;
+  gs->current.x = 0;
+  gs->current.y = 0;
   gs->current.angle = 0;
   gs->stack_n = 0;
   gs->stack_max = STACK_ALLOC;
@@ -292,12 +291,12 @@ const char* read_opts(struct draw_dev_conf* conf, struct global_state* gs,
       break;
     case 'x':
     case 7:
-      gs->origin_x = atof(optarg);
+      conf->origin_x = atof(optarg);
       x_unset = 0;
       break;
     case 'y':
     case 8:
-      gs->origin_y = atof(optarg);
+      conf->origin_y = atof(optarg);
       y_unset = 0;
       break;
     case 'l':
@@ -325,10 +324,10 @@ const char* read_opts(struct draw_dev_conf* conf, struct global_state* gs,
     }
   }
   if(x_unset) {
-    gs->origin_x = conf->width/2.0;
+    conf->origin_x = conf->width/2.0;
   }
   if(y_unset) {
-    gs->origin_y = conf->height/2.0;
+    conf->origin_y = conf->height/2.0;
   }
   return filepath;
 }

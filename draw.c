@@ -21,110 +21,91 @@
 ***/
 
 #include "draw.h"
-#include <cairo-pdf.h>
-#include <string.h>
 #include <stdlib.h>
+#include <wand/magick_wand.h>
 
 struct draw_dev {
-  cairo_surface_t *surface;
-  cairo_t *cr;
-  enum {DRAW_DEV_PDF, DRAW_DEV_PNG} type;
-  char *filepath;
+  MagickWand* mw;
+  DrawingWand* dw;
+  PixelWand* pw;
 };
 
 void draw_dev_conf_default(struct draw_dev_conf* c)
 {
   c->width = 800;
   c->height = 600;
+  c->origin_x = 400;
+  c->origin_y = 300;
   c->line_width = 2.0;
   c->line_cap = DRAW_DEV_CAP_BUTT;
+  c->line_join = DRAW_DEV_JOIN_MITER;
 }
 
-struct draw_dev* draw_init(const char *filepath, const struct draw_dev_conf *c)
+struct draw_dev* draw_init(const struct draw_dev_conf *c)
 {
-  unsigned length = strlen(filepath);
-  if(length < 5) {
-    return NULL;
-  }
+  MagickWandGenesis();
   struct draw_dev* d = malloc(sizeof *d);
   if(!d) {
     return NULL;
   }
-  const char* ending = filepath + length - 4;
-  if(strstr(filepath, ".pdf") == ending) {
-    d->surface = cairo_pdf_surface_create(filepath, c->width, c->height);
-    d->type = DRAW_DEV_PDF;
-  } else if(strstr(filepath, ".png") == ending) {
-    d->surface =
-        cairo_image_surface_create(CAIRO_FORMAT_RGB24, c->width, c->height);
-    d->type = DRAW_DEV_PNG;
-  } else {
-    free(d);
-    return NULL;
-  }
-  if(cairo_surface_status(d->surface) != CAIRO_STATUS_SUCCESS) {
-    free(d);
-    return NULL;
-  }
-  d->cr = cairo_create(d->surface);
-  if(cairo_status(d->cr) != CAIRO_STATUS_SUCCESS) {
-    cairo_surface_destroy(d->surface);
-    free(d);
-  }
-  cairo_set_source_rgb(d->cr, 1, 1, 1);
-  cairo_paint(d->cr);
-  cairo_set_source_rgb(d->cr, 0, 0, 0);
-  cairo_set_line_width(d->cr, c->line_width);
+  d->mw = NewMagickWand();
+  d->dw = NewDrawingWand();
+  d->pw = NewPixelWand();
+  PixelSetColor(d->pw, "white");
+  MagickNewImage(d->mw, c->width, c->height, d->pw);
+  PixelSetColor(d->pw, "black");
+  DrawSetStrokeAntialias(d->dw, 1);
+  DrawSetStrokeOpacity(d->dw, 1);
+  DrawSetFillOpacity(d->dw, 0);
+  DrawSetStrokeWidth(d->dw, c->line_width);
+  DrawSetStrokeColor(d->dw, d->pw);
   switch(c->line_cap) {
   case DRAW_DEV_CAP_BUTT:
-    cairo_set_line_cap(d->cr, CAIRO_LINE_CAP_BUTT);
+    DrawSetStrokeLineCap(d->dw, ButtCap);
     break;
   case DRAW_DEV_CAP_ROUND:
-    cairo_set_line_cap(d->cr, CAIRO_LINE_CAP_ROUND);
+    DrawSetStrokeLineCap(d->dw, RoundCap);
     break;
   case DRAW_DEV_CAP_SQUARE:
-    cairo_set_line_cap(d->cr, CAIRO_LINE_CAP_SQUARE);
+    DrawSetStrokeLineCap(d->dw, SquareCap);
     break;
-  default:
-    cairo_surface_destroy(d->surface);
-    cairo_destroy(d->cr);
-    free(d);
-    return NULL;
   }
-  d->filepath = malloc((length+1)*sizeof(char));
-  if(!d->filepath) {
-    cairo_surface_destroy(d->surface);
-    cairo_destroy(d->cr);
-    free(d);
-    return NULL;
+  switch(c->line_join) {
+  case DRAW_DEV_JOIN_MITER:
+    DrawSetStrokeLineJoin(d->dw, MiterJoin);
+    break;
+  case DRAW_DEV_JOIN_ROUND:
+    DrawSetStrokeLineJoin(d->dw, RoundJoin);
+    break;
+  case DRAW_DEV_JOIN_BEVEL:
+    DrawSetStrokeLineJoin(d->dw, BevelJoin);
+    break;
   }
-  strcpy(d->filepath,filepath);
+  DrawTranslate(d->dw, c->origin_x, c->origin_y);
+  DrawPathStart(d->dw);
+  DrawPathMoveToAbsolute(d->dw, 0, 0);
   return d;
 }
 
-void draw_line_to(struct draw_dev *d, double x, double y)
+void draw_line_to(struct draw_dev* d, double x, double y)
 {
-  cairo_line_to(d->cr, x, y);
+  DrawPathLineToAbsolute(d->dw, x, y);
 }
 
-void draw_move_to(struct draw_dev *d, double x, double y)
+void draw_move_to(struct draw_dev* d, double x, double y)
 {
-  cairo_move_to(d->cr, x, y);
+  DrawPathMoveToAbsolute(d->dw, x, y);
 }
 
-void draw_release(struct draw_dev *d)
+void draw_finish(struct draw_dev* d, const char* filepath)
 {
-  cairo_stroke(d->cr);
-  switch(d->type) {
-  case DRAW_DEV_PNG:
-    cairo_surface_write_to_png(d->surface, d->filepath);
-    break;
-  default:
-    break;
-  }
-  cairo_surface_destroy(d->surface);
-  cairo_destroy(d->cr);
-  free(d->filepath);
+  DrawPathFinish(d->dw);
+  MagickDrawImage(d->mw, d->dw);
+  MagickWriteImage(d->mw, filepath);
+  DestroyPixelWand(d->pw);
+  DestroyDrawingWand(d->dw);
+  DestroyMagickWand(d->mw);
+  MagickWandTerminus();
   free(d);
 }
 

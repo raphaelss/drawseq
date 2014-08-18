@@ -2,4 +2,6 @@ letdraw
 *.o
 *.pdf
 *.png
+*.bmp
+*.jpg
 
