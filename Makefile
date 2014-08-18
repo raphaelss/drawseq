@@ -1,4 +1,4 @@
-FLAGS = -std=c99 -Wall -pedantic -g `pkg-config --cflags MagickWand`
+FLAGS = -std=c99 -Wall -pedantic -O3 -flto `pkg-config --cflags MagickWand`
 LIBS = -lm `pkg-config --libs MagickWand`
 CC = gcc
 EXE = letdraw
