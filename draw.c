@@ -52,7 +52,9 @@ struct draw_dev* draw_init(const struct draw_dev_conf *c)
   d->dw = NewDrawingWand();
   d->pw = NewPixelWand();
   PixelSetColor(d->pw, "white");
-  MagickNewImage(d->mw, c->width, c->height, d->pw);
+  if(MagickNewImage(d->mw, c->width, c->height, d->pw) == MagickFalse) {
+    return NULL;
+  }
   PixelSetColor(d->pw, "black");
   DrawSetStrokeAntialias(d->dw, 1);
   DrawSetStrokeOpacity(d->dw, 1);
@@ -84,6 +86,10 @@ struct draw_dev* draw_init(const struct draw_dev_conf *c)
   DrawTranslate(d->dw, c->origin_x, c->origin_y);
   DrawPathStart(d->dw);
   DrawPathMoveToAbsolute(d->dw, 0, 0);
+  //Necessary to avoid errors when there are no drawing actions
+  DrawPathMoveToAbsolute(d->dw, 1, 1);
+  DrawPathMoveToAbsolute(d->dw, 0, 0);
+  //*********
   return d;
 }
 
@@ -97,15 +103,18 @@ void draw_move_to(struct draw_dev* d, double x, double y)
   DrawPathMoveToAbsolute(d->dw, x, y);
 }
 
-void draw_finish(struct draw_dev* d, const char* filepath)
+int draw_finish(struct draw_dev* d, const char* filepath)
 {
   DrawPathFinish(d->dw);
   MagickDrawImage(d->mw, d->dw);
-  MagickWriteImage(d->mw, filepath);
+  if(MagickWriteImage(d->mw, filepath) == MagickFalse) {
+    return 1;
+  }
   DestroyPixelWand(d->pw);
   DestroyDrawingWand(d->dw);
   DestroyMagickWand(d->mw);
   MagickWandTerminus();
   free(d);
+  return 0;
 }
 

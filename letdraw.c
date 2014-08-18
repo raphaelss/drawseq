@@ -94,7 +94,9 @@ int main(int argc, char **argv)
     }
   }
   update_state_draw(&gs, dr);
-  draw_finish(dr, filepath);
+  if(draw_finish(dr, filepath)) {
+    fputs("Error writing image", stderr);
+  }
   release_global_state(&gs);
   if(infile) {
     fclose(fin);

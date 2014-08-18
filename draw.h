@@ -47,6 +47,6 @@ void draw_dev_conf_default(struct draw_dev_conf* c);
 struct draw_dev* draw_init(const struct draw_dev_conf* c);
 void draw_line_to(struct draw_dev* d, double x, double y);
 void draw_move_to(struct draw_dev* d, double x, double y);
-void draw_finish(struct draw_dev* d, const char* filepath);
+int draw_finish(struct draw_dev* d, const char* filepath);
 
 #endif
