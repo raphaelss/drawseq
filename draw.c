@@ -77,24 +77,14 @@ struct draw_dev* draw_init(const struct draw_dev_conf *c)
   return d;
 }
 
-void draw_line(struct draw_dev* d, double x1, double y1, double x2, double y2)
+void draw_line(struct draw_dev* d, double x1, double y1, double x2,
+               double y2)
 {
   DrawLine(d->dw, x1, y1, x2, y2);
 }
 
-void draw_line_to(struct draw_dev* d, double x, double y)
-{
-  DrawPathLineToAbsolute(d->dw, x, y);
-}
-
-void draw_move_to(struct draw_dev* d, double x, double y)
-{
-  DrawPathMoveToAbsolute(d->dw, x, y);
-}
-
 int draw_finish(struct draw_dev* d, const char* filepath)
 {
-  //DrawPathFinish(d->dw);
   MagickDrawImage(d->mw, d->dw);
   if(MagickWriteImage(d->mw, filepath) == MagickFalse) {
     return 1;

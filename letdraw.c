@@ -38,7 +38,12 @@ struct state {
 struct global_state {
   struct state *stack;
   struct state current;
-  unsigned stack_n, stack_max, d_count, u_count;
+  unsigned stack_n, stack_max, d_count, repeat;
+};
+
+struct instruction {
+  char ch;
+  int (*operation)(struct global_state*, struct draw_dev*);
 };
 
 void usage(void);
@@ -51,6 +56,28 @@ int pop_state(struct global_state *gs);
 void update_state(struct state *s, double dist);
 void update_state_draw(struct global_state *gs, struct draw_dev *dr);
 int do_char(int ch, struct global_state *gs, struct draw_dev *dr);
+
+//Operations
+int op_line(struct global_state* gs, struct draw_dev* dr);
+int op_move(struct global_state* gs, struct draw_dev* dr);
+int op_reset(struct global_state* gs, struct draw_dev* dr);
+int op_move_to_origin(struct global_state* gs, struct draw_dev* dr);
+int op_push_stack(struct global_state* gs, struct draw_dev* dr);
+int op_pop_stack(struct global_state* gs, struct draw_dev* dr);
+int op_15deg_counterclockwise(struct global_state* gs, struct draw_dev* dr);
+int op_15deg_clockwise(struct global_state* gs, struct draw_dev* dr);
+
+struct instruction instructions [] = {
+  {'d', op_line},
+  {'u', op_move},
+  {'r', op_reset},
+  {'o', op_move_to_origin},
+  {'[', op_push_stack},
+  {']', op_pop_stack},
+  {'<', op_15deg_counterclockwise},
+  {'>', op_15deg_clockwise},
+  {0}
+};
 
 int main(int argc, char **argv)
 {
@@ -100,138 +127,38 @@ int main(int argc, char **argv)
   if(infile) {
     fclose(fin);
   }
-  //Cleans up some valgrind still-reachable errors
-  //cairo_debug_reset_static_data();
   return 0;
 }
 
-int init_global_state(struct global_state *gs)
+void usage(void)
 {
-  if(!(gs->stack = malloc(sizeof(struct state) * STACK_ALLOC))) {
-    return 1;
-  }
-  gs->current.x = 0;
-  gs->current.y = 0;
-  gs->current.angle = 0;
-  gs->stack_n = 0;
-  gs->stack_max = STACK_ALLOC;
-  gs->d_count = 0;
-  gs->u_count = 0;
-  return 0;
-}
-
-void release_global_state(struct global_state *gs)
-{
-  free(gs->stack);
-}
-
-int push_state(struct global_state *gs)
-{
-  if(gs->stack_n == gs->stack_max) {
-    struct state *tmp = realloc(gs->stack, sizeof(*tmp)*gs->stack_max*2);
-    if(tmp) {
-      gs->stack = tmp;
-      gs->stack_max *= 2;
-    } else {
-      fputs("Memory allocation error while expanding global state stack",
-            stderr);
-      return 1;
-    }
-  }
-  gs->stack[gs->stack_n++] = gs->current;
-  return 0;
-}
-
-int pop_state(struct global_state *gs)
-{
-  if(gs->stack_n > 0) {
-    gs->current = gs->stack[--gs->stack_n];
-    return 0;
-  }
-  fputs("Stack error", stderr);
-  return 1;
-}
-
-void update_state(struct state *s, double dist)
-{
-  static double trig15 [] = {0, 0.25882, 0.5, 0.70711, 0.86603, 0.96593, 1};
-  if(s->angle < 7) {
-    s->x -= dist * trig15[s->angle];
-    s->y -= dist * trig15[6-s->angle];
-  } else if (s->angle < 13) {
-    s->x -= dist * trig15[12-s->angle];
-    s->y += dist * trig15[s->angle-6];
-  } else if (s->angle < 19) {
-    s->x += dist * trig15[s->angle-12];
-    s->y += dist * trig15[18-s->angle];
-  } else {
-    s->x += dist * trig15[24-s->angle];
-    s->y -= dist * trig15[s->angle-18];
-  }
-}
-
-void update_state_draw(struct global_state *gs, struct draw_dev *dr)
-{
-  if(gs->d_count > 0) {
-    double sx = gs->current.x, sy = gs->current.y;
-    update_state(&gs->current, gs->d_count);
-    draw_line(dr, sx, sy, gs->current.x, gs->current.y);
-    gs->d_count = 0;
-  } else if (gs->u_count > 0) {
-    update_state(&gs->current, gs->u_count);
-    //draw_move_to(dr, gs->current.x, gs->current.y);
-    gs->u_count = 0;
-  }
-}
-
-int do_char(int ch, struct global_state *gs, struct draw_dev *dr)
-{
-  switch(ch) {
-  case 'd':
-    if(gs->u_count != 0) {
-      update_state_draw(gs, dr);
-    }
-    ++gs->d_count;
-    break;
-  case 'u':
-    if(gs->d_count != 0) {
-      update_state_draw(gs, dr);
-    }
-    ++gs->u_count;
-    break;
-  case 'r':
-    update_state_draw(gs, dr);
-    gs->current.angle = 0; //fall through intentional
-    gs->current.x = 0;
-    gs->current.y = 0;
-    break;
-  case 'o':
-    update_state_draw(gs, dr);
-    gs->current.x = 0;
-    gs->current.y = 0;
-    break;
-  case '[':
-    update_state_draw(gs, dr);
-    if(push_state(gs)) {
-      return 1;
-    }
-    break;
-  case ']':
-    update_state_draw(gs, dr);
-    if(pop_state(gs)) {
-      return 1;
-    }
-    break;
-  case '<':
-    update_state_draw(gs, dr);
-    gs->current.angle = (gs->current.angle+1)%24;
-    break;
-  case '>':
-    update_state_draw(gs, dr);
-    gs->current.angle = gs->current.angle? (gs->current.angle-1)%24 : 23;
-    break;
-  }
-  return 0;
+  puts(
+    "Usage: letdraw --out=FILE [OPTION]\n"
+    "  -h --help                Display this message\n"
+    "  -o --out=*.(pdf|png)     Output file (required)\n"
+    "  -i --in=FILE             Input file containing sequence of characters\n"
+    "                           If no file is specified, letdraw reads from\n"
+    "                           STDIN\n"
+    "  -w --width=NATURAL       Width of image canvas (default: 800)\n"
+    "  -H --height=NATURAL      Height of image canvas (default: 600)\n"
+    "  -x --origin_x=REAL       X of starting point (default: width/2)\n"
+    "  -y --origin_y=REAL       Y of starting point (default: height/2)\n"
+    "  -s --scale=REAL>0        Scale drawing lines (default: 1.0)\n"
+    "  -l --line_width=REAL>0   Width of line stroke (default: 2.0)\n"
+    "  -c --line_cap=(normal|round|square) Line end shape (default: normal)\n"
+    "Letdraw reads characters and treats some of them as instructions for a \n"
+    "drawing machine while ignoring the others.\n"
+    "Stack usage must be balanced (it can't pop an empty stack).\n"
+    "Supported characters:\n"
+    "  d : Move forward drawing line\n"
+    "  u : Move forward without drawing\n"
+    "  < : Turn 15 degrees counterclockwise\n"
+    "  > : Turn 15 degrees clockwise\n"
+    "  [ : Push state (position and direction) into stack\n"
+    "  ] : Pop state (position and direction) from stack\n"
+    "  o : Move to origin without drawing\n"
+    "  r : Move to origin without drawing and reset angle to 0 degrees"
+  );
 }
 
 const char* read_opts(struct draw_dev_conf* conf, struct global_state* gs,
@@ -253,7 +180,7 @@ const char* read_opts(struct draw_dev_conf* conf, struct global_state* gs,
   const char* filepath = NULL;
   int c;
   int x_unset = 1, y_unset = 1;
-  while((c = getopt_long(argc, argv, "ho:i:w:H:s:x:y:l:c:", opts, NULL)) != -1) {
+  while((c = getopt_long(argc,argv,"ho:i:w:H:s:x:y:l:c:",opts,NULL)) != -1) {
     switch(c) {
     case 'h':
     case 1:
@@ -333,30 +260,162 @@ const char* read_opts(struct draw_dev_conf* conf, struct global_state* gs,
   return filepath;
 }
 
-void usage(void)
+int init_global_state(struct global_state *gs)
 {
-  puts(
-    "Usage: letdraw --out=FILE [OPTION]\n"
-    "  -h --help                Display this message\n"
-    "  -o --out=*.(pdf|png)     Output file (required)\n"
-    "  -i --in=FILE             Input file containing sequence of characters\n"
-    "                           If no file is specified, letdraw reads from\n"
-    "                           STDIN.\n"
-    "  -w --width=NATURAL       Width of image canvas (default: 800)\n"
-    "  -H --height=NATURAL      Height of image canvas (default: 600)\n"
-    "  -x --origin_x=REAL       X of starting point (default: width/2)\n"
-    "  -y --origin_y=REAL       Y of starting point (default: height/2)\n"
-    "  -s --scale=REAL>0        Scale drawing lines (default: 1.0)\n"
-    "  -l --line_width=REAL>0   Width of line stroke (default: 2.0)\n"
-    "  -c --line_cap=(normal|round|square) Line end shape (default: normal)\n"
-    "Supported characters:\n"
-    "  d : Move forward drawing line\n"
-    "  u : Move forward without drawing\n"
-    "  < : Rotate 15 degrees counterclockwise\n"
-    "  > : Rotate 15 degrees clockwise\n"
-    "  [ : Push state into stack\n"
-    "  ] : Pop state from stack\n"
-    "  o : Move to origin without drawing\n"
-    "  r : Move to origin without drawing and reset angle to 0 degrees"
-  );
+  if(!(gs->stack = malloc(sizeof(struct state) * STACK_ALLOC))) {
+    return 1;
+  }
+  gs->current.x = 0;
+  gs->current.y = 0;
+  gs->current.angle = 0;
+  gs->stack_n = 0;
+  gs->stack_max = STACK_ALLOC;
+  gs->d_count = 0;
+  gs->repeat = 1;
+  return 0;
 }
+
+void release_global_state(struct global_state *gs)
+{
+  free(gs->stack);
+}
+
+int push_state(struct global_state *gs)
+{
+  if(gs->stack_n == gs->stack_max) {
+    struct state *tmp = realloc(gs->stack, sizeof(*tmp)*gs->stack_max*2);
+    if(tmp) {
+      gs->stack = tmp;
+      gs->stack_max *= 2;
+    } else {
+      fputs("Memory allocation error while expanding global state stack",
+            stderr);
+      return 1;
+    }
+  }
+  gs->stack[gs->stack_n++] = gs->current;
+  return 0;
+}
+
+int pop_state(struct global_state *gs)
+{
+  if(gs->stack_n > 0) {
+    gs->current = gs->stack[--gs->stack_n];
+    return 0;
+  }
+  fputs("Stack error", stderr);
+  return 1;
+}
+
+void update_state(struct state *s, double dist)
+{
+  static double trig15 [] = {0, 0.25882, 0.5, 0.70711, 0.86603, 0.96593, 1};
+  if(s->angle < 7) {
+    s->x -= dist * trig15[s->angle];
+    s->y -= dist * trig15[6-s->angle];
+  } else if (s->angle < 13) {
+    s->x -= dist * trig15[12-s->angle];
+    s->y += dist * trig15[s->angle-6];
+  } else if (s->angle < 19) {
+    s->x += dist * trig15[s->angle-12];
+    s->y += dist * trig15[18-s->angle];
+  } else {
+    s->x += dist * trig15[24-s->angle];
+    s->y -= dist * trig15[s->angle-18];
+  }
+}
+
+void update_state_draw(struct global_state *gs, struct draw_dev *dr)
+{
+  if(gs->d_count > 0) {
+    double sx = gs->current.x, sy = gs->current.y;
+    update_state(&gs->current, gs->d_count);
+    draw_line(dr, sx, sy, gs->current.x, gs->current.y);
+    gs->d_count = 0;
+  }
+}
+
+int do_char(int ch, struct global_state *gs, struct draw_dev *dr)
+{
+  if(isdigit(ch)) {
+    gs->repeat *= ch - '0';
+    return 0;
+  }
+  struct instruction* ptr = instructions;
+  while(ptr->ch) {
+    if(ch == ptr->ch) {
+      while(gs->repeat-- > 0) {
+        if(ptr->operation(gs, dr)) {
+          return 1;
+        }
+      }
+      gs->repeat = 1;
+      return 0;
+    }
+    ++ptr;
+  }
+  return 0;
+}
+
+int op_line(struct global_state* gs, struct draw_dev* dr)
+{
+  ++gs->d_count;
+  return 0;
+}
+
+int op_move(struct global_state* gs, struct draw_dev* dr)
+{
+  update_state_draw(gs, dr);
+  update_state(&gs->current, 1);
+  return 0;
+}
+
+int op_reset(struct global_state* gs, struct draw_dev* dr)
+{
+  update_state_draw(gs, dr);
+  gs->current.angle = 0;
+  gs->current.x = 0;
+  gs->current.y = 0;
+  return 0;
+}
+
+int op_move_to_origin(struct global_state* gs, struct draw_dev* dr)
+{
+  update_state_draw(gs, dr);
+  gs->current.x = 0;
+  gs->current.y = 0;
+  return 0;
+}
+
+int op_push_stack(struct global_state* gs, struct draw_dev* dr)
+{
+  update_state_draw(gs, dr);
+  if(push_state(gs)) {
+    return 1;
+  }
+  return 0;
+}
+
+int op_pop_stack(struct global_state* gs, struct draw_dev* dr)
+{
+  update_state_draw(gs, dr);
+  if(pop_state(gs)) {
+    return 1;
+  }
+  return 0;
+}
+
+int op_15deg_counterclockwise(struct global_state* gs, struct draw_dev* dr)
+{
+  update_state_draw(gs, dr);
+  gs->current.angle = (gs->current.angle+1)%24;
+  return 0;
+}
+
+int op_15deg_clockwise(struct global_state* gs, struct draw_dev* dr)
+{
+  update_state_draw(gs, dr);
+  gs->current.angle = gs->current.angle? (gs->current.angle-1)%24 : 23;
+  return 0;
+}
+
