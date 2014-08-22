@@ -30,17 +30,10 @@ enum draw_line_cap {
   DRAW_DEV_CAP_SQUARE
 };
 
-enum draw_line_join {
-  DRAW_DEV_JOIN_MITER,
-  DRAW_DEV_JOIN_ROUND,
-  DRAW_DEV_JOIN_BEVEL,
-};
-
 struct draw_dev_conf {
   unsigned width, height;
   double scale, line_width, origin_x, origin_y;
   enum draw_line_cap line_cap;
-  enum draw_line_join line_join;
 };
 
 void draw_dev_conf_default(struct draw_dev_conf* c);

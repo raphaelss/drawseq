@@ -39,7 +39,6 @@ void draw_dev_conf_default(struct draw_dev_conf* c)
   c->scale = 1.0;
   c->line_width = 2.0;
   c->line_cap = DRAW_DEV_CAP_BUTT;
-  c->line_join = DRAW_DEV_JOIN_MITER;
 }
 
 struct draw_dev* draw_init(const struct draw_dev_conf *c)
@@ -71,17 +70,6 @@ struct draw_dev* draw_init(const struct draw_dev_conf *c)
     break;
   case DRAW_DEV_CAP_SQUARE:
     DrawSetStrokeLineCap(d->dw, SquareCap);
-    break;
-  }
-  switch(c->line_join) {
-  case DRAW_DEV_JOIN_MITER:
-    DrawSetStrokeLineJoin(d->dw, MiterJoin);
-    break;
-  case DRAW_DEV_JOIN_ROUND:
-    DrawSetStrokeLineJoin(d->dw, RoundJoin);
-    break;
-  case DRAW_DEV_JOIN_BEVEL:
-    DrawSetStrokeLineJoin(d->dw, BevelJoin);
     break;
   }
   DrawTranslate(d->dw, c->origin_x, c->origin_y);
