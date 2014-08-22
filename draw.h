@@ -38,13 +38,14 @@ enum draw_line_join {
 
 struct draw_dev_conf {
   unsigned width, height;
-  double line_width, origin_x, origin_y;
+  double scale, line_width, origin_x, origin_y;
   enum draw_line_cap line_cap;
   enum draw_line_join line_join;
 };
 
 void draw_dev_conf_default(struct draw_dev_conf* c);
 struct draw_dev* draw_init(const struct draw_dev_conf* c);
+void draw_line(struct draw_dev* d, double x1, double y1, double x2, double y2);
 void draw_line_to(struct draw_dev* d, double x, double y);
 void draw_move_to(struct draw_dev* d, double x, double y);
 int draw_finish(struct draw_dev* d, const char* filepath);

@@ -39,7 +39,6 @@ struct global_state {
   struct state *stack;
   struct state current;
   unsigned stack_n, stack_max, d_count, u_count;
-  double scale;
 };
 
 void usage(void);
@@ -129,7 +128,7 @@ void release_global_state(struct global_state *gs)
 int push_state(struct global_state *gs)
 {
   if(gs->stack_n == gs->stack_max) {
-    struct state *tmp = realloc(gs->stack, sizeof(*tmp) * gs->stack_max * 2);
+    struct state *tmp = realloc(gs->stack, sizeof(*tmp)*gs->stack_max*2);
     if(tmp) {
       gs->stack = tmp;
       gs->stack_max *= 2;
@@ -174,12 +173,13 @@ void update_state(struct state *s, double dist)
 void update_state_draw(struct global_state *gs, struct draw_dev *dr)
 {
   if(gs->d_count > 0) {
-    update_state(&gs->current, gs->d_count * gs->scale);
-    draw_line_to(dr, gs->current.x, gs->current.y);
+    double sx = gs->current.x, sy = gs->current.y;
+    update_state(&gs->current, gs->d_count);
+    draw_line(dr, sx, sy, gs->current.x, gs->current.y);
     gs->d_count = 0;
   } else if (gs->u_count > 0) {
-    update_state(&gs->current, gs->u_count * gs->scale);
-    draw_move_to(dr, gs->current.x, gs->current.y);
+    update_state(&gs->current, gs->u_count);
+    //draw_move_to(dr, gs->current.x, gs->current.y);
     gs->u_count = 0;
   }
 }
@@ -192,42 +192,42 @@ int do_char(int ch, struct global_state *gs, struct draw_dev *dr)
       update_state_draw(gs, dr);
     }
     ++gs->d_count;
-    return 0;
+    break;
   case 'u':
     if(gs->d_count != 0) {
       update_state_draw(gs, dr);
     }
     ++gs->u_count;
-    return 0;
-  }
-  if(isspace(ch)) {
-    return 0;
-  }
-  update_state_draw(gs, dr);
-  switch(ch) {
+    break;
   case 'r':
+    update_state_draw(gs, dr);
     gs->current.angle = 0; //fall through intentional
-  case 'o':
     gs->current.x = 0;
     gs->current.y = 0;
-    draw_move_to(dr, gs->current.x, gs->current.y);
+    break;
+  case 'o':
+    update_state_draw(gs, dr);
+    gs->current.x = 0;
+    gs->current.y = 0;
     break;
   case '[':
+    update_state_draw(gs, dr);
     if(push_state(gs)) {
       return 1;
     }
-    draw_move_to(dr, gs->current.x, gs->current.y);
     break;
   case ']':
+    update_state_draw(gs, dr);
     if(pop_state(gs)) {
       return 1;
     }
-    draw_move_to(dr, gs->current.x, gs->current.y);
     break;
   case '<':
+    update_state_draw(gs, dr);
     gs->current.angle = (gs->current.angle+1)%24;
     break;
   case '>':
+    update_state_draw(gs, dr);
     gs->current.angle = gs->current.angle? (gs->current.angle-1)%24 : 23;
     break;
   }
@@ -253,7 +253,6 @@ const char* read_opts(struct draw_dev_conf* conf, struct global_state* gs,
   const char* filepath = NULL;
   int c;
   int x_unset = 1, y_unset = 1;
-  gs->scale = 2.0;
   while((c = getopt_long(argc, argv, "ho:i:w:H:s:x:y:l:c:", opts, NULL)) != -1) {
     switch(c) {
     case 'h':
@@ -285,8 +284,8 @@ const char* read_opts(struct draw_dev_conf* conf, struct global_state* gs,
       break;
     case 's':
     case 6:
-      gs->scale = atof(optarg);
-      if(gs->scale <= 0) {
+      conf->scale = atof(optarg);
+      if(conf->scale <= 0) {
         fprintf(stderr, "Invalid scale: %s\n", optarg);
         return NULL;
       }

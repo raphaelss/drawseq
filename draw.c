@@ -36,6 +36,7 @@ void draw_dev_conf_default(struct draw_dev_conf* c)
   c->height = 600;
   c->origin_x = 400;
   c->origin_y = 300;
+  c->scale = 1.0;
   c->line_width = 2.0;
   c->line_cap = DRAW_DEV_CAP_BUTT;
   c->line_join = DRAW_DEV_JOIN_MITER;
@@ -84,13 +85,13 @@ struct draw_dev* draw_init(const struct draw_dev_conf *c)
     break;
   }
   DrawTranslate(d->dw, c->origin_x, c->origin_y);
-  DrawPathStart(d->dw);
-  DrawPathMoveToAbsolute(d->dw, 0, 0);
-  //Necessary to avoid errors when there are no drawing actions
-  DrawPathMoveToAbsolute(d->dw, 1, 1);
-  DrawPathMoveToAbsolute(d->dw, 0, 0);
-  //*********
+  DrawScale(d->dw, c->scale, c->scale);
   return d;
+}
+
+void draw_line(struct draw_dev* d, double x1, double y1, double x2, double y2)
+{
+  DrawLine(d->dw, x1, y1, x2, y2);
 }
 
 void draw_line_to(struct draw_dev* d, double x, double y)
@@ -105,7 +106,7 @@ void draw_move_to(struct draw_dev* d, double x, double y)
 
 int draw_finish(struct draw_dev* d, const char* filepath)
 {
-  DrawPathFinish(d->dw);
+  //DrawPathFinish(d->dw);
   MagickDrawImage(d->mw, d->dw);
   if(MagickWriteImage(d->mw, filepath) == MagickFalse) {
     return 1;
@@ -117,4 +118,3 @@ int draw_finish(struct draw_dev* d, const char* filepath)
   free(d);
   return 0;
 }
-
