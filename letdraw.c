@@ -153,7 +153,7 @@ void usage(void)
     "  ] : Pop state (position and direction) from stack\n"
     "  o : Move to origin without drawing\n"
     "  r : Move to origin without drawing and reset angle to 0 degrees\n"
-    "  # : Repeat next instruction # times\n"
+    "  # : Execute next instruction # times\n"
     "# == any single digit number.\n"
     "# instruction is cummulative. Ex.: 2d == dd, 3d==ddd, 23d==6d.\n"
     "Stack usage must be balanced (it can't pop an empty stack)."
