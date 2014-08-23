@@ -6,34 +6,36 @@ characters as instructions for a drawing machine.
 
 ## Supported characters
 
-d : Move forward drawing line
-u : Move forward without drawing
-< : Turn 15 degrees counterclockwise
-\> : Turn 15 degrees clockwise
-[ : Push state (position and direction) into stack
-] : Pop state (position and direction) from stack
-o : Move to origin without drawing
-r : Move to origin without drawing and reset angle to 0 degrees
-\# : Execute next instruction # times
-\# == any single digit number.
-\# instruction is cummulative. Ex.: 2d == dd, 3d==ddd, 23d==6d.
-Stack usage must be balanced (it can't pop an empty stack).
+- d : Move forward drawing line
+- u : Move forward without drawing
+- < : Turn 15 degrees counterclockwise
+- \> : Turn 15 degrees clockwise
+- [ : Push state (position and direction) into stack
+- ] : Pop state (position and direction) from stack
+  - Stack usage must be balanced (it can't pop an empty stack).
+- o : Move to origin without drawing
+- r : Move to origin without drawing and reset angle to 0 degrees
+- \# : Execute next instruction # times
+  - \# == any single digit number.
+  - \# instruction is cummulative. Ex.: 2d == dd, 3d==ddd, 23d==6d.
 
 ## Numeric repeat instructions
 
 Numbers are interpreted as an instruction to execute the next operation _n_
 times.
-Ex.: the sequence *4d* draws a line four units long (same as *dddd*).
+Ex.: the sequence __4d__ draws a line four units long (same as __dddd__).
 Numbers are read as individual digits and the repeating effect is
 cumulative.
-Ex.: The sequence *22d* does not mean the *d* instructions repeated twenty-two
-times. The first *2* is an instruction to execute the next instruction 2 times.
-In this case, the next instruction is also *2*. This causes *d* to be executed
-4 (2\*2) times (same as *dddd*). *235d*, as another example, would execute *d*
-30 (2\*3\*5) times.
+Ex.: The sequence __22d__ does not mean the **d** instructions executed
+twenty-two times. The first __2__ is an instruction to execute the next
+instruction 2 times.
+In this case, the next instruction is also __2__. This causes __d__ to be
+executed 4 (2\*2) times (same as __dddd__). __235d__, as another example,
+would execute __d__ 30 (2\*3\*5) times.
 
 # Usage
 
+```
 Usage: letdraw --out=FILE [OPTION]
   -h --help                Display this message
   -o --out=\*.(pdf|png)     Output file (required)
@@ -59,10 +61,10 @@ Supported characters:
   o : Move to origin without drawing
   r : Move to origin without drawing and reset angle to 0 degrees
   # : Repeat next instruction # times
-\# == any single digit number.
-\# instruction is cummulative. Ex.: 2d == dd, 3d==ddd, 23d==6d.
+# == any single digit number.
+# instruction is cummulative. Ex.: 2d == dd, 3d==ddd, 23d==6d.
 Stack usage must be balanced (it can't pop an empty stack).
-
+```
 
 # License
 
