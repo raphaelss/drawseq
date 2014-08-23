@@ -38,17 +38,17 @@ would execute __d__ 30 (2\*3\*5) times.
 ```
 Usage: letdraw --out=FILE [OPTION]
   -h --help                Display this message
-  -o --out=\*.(pdf|png)     Output file (required)
+  -o --out=*.(pdf|png)     Output file (required)
   -i --in=FILE             Input file containing sequence of characters
                            If no file is specified, letdraw reads from
                            STDIN
   -w --width=NATURAL       Width of image canvas (default: 800)
   -H --height=NATURAL      Height of image canvas (default: 600)
-  -x --origin\_x=REAL       X of starting point (default: width/2)
-  -y --origin\_y=REAL       Y of starting point (default: height/2)
+  -x --origin_x=REAL       X of starting point (default: width/2)
+  -y --origin_y=REAL       Y of starting point (default: height/2)
   -s --scale=REAL>0        Scale drawing lines (default: 1.0)
-  -l --line\_width=REAL>0   Width of line stroke (default: 2.0)
-  -c --line\_cap=(normal|round|square) Line end shape (default: normal)
+  -l --line_width=REAL>0   Width of line stroke (default: 2.0)
+  -c --line_cap=(normal|round|square) Line end shape (default: normal)
 Letdraw reads characters and treats some of them as instructions for a
 drawing machine while ignoring the others.
 Supported characters:
