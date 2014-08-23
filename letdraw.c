@@ -114,14 +114,10 @@ int main(int argc, char **argv)
     return 1;
   }
   int ch;
-  while((ch = getc(fin)) != EOF) {
-    if(do_char(ch, &gs, dr)) {
-      break;
-    }
-  }
+  while((ch = getc(fin)) != EOF && !(do_char(ch, &gs, dr)));
   update_state_draw(&gs, dr);
   if(draw_finish(dr, filepath)) {
-    fputs("Error writing image", stderr);
+    fprintf(stderr, "Error writing image (%s)\n", filepath);
   }
   release_global_state(&gs);
   if(infile) {
@@ -148,7 +144,6 @@ void usage(void)
     "  -c --line_cap=(normal|round|square) Line end shape (default: normal)\n"
     "Letdraw reads characters and treats some of them as instructions for a \n"
     "drawing machine while ignoring the others.\n"
-    "Stack usage must be balanced (it can't pop an empty stack).\n"
     "Supported characters:\n"
     "  d : Move forward drawing line\n"
     "  u : Move forward without drawing\n"
@@ -157,7 +152,11 @@ void usage(void)
     "  [ : Push state (position and direction) into stack\n"
     "  ] : Pop state (position and direction) from stack\n"
     "  o : Move to origin without drawing\n"
-    "  r : Move to origin without drawing and reset angle to 0 degrees"
+    "  r : Move to origin without drawing and reset angle to 0 degrees\n"
+    "  # : Repeat next instruction # times\n"
+    "# == any single digit number.\n"
+    "# instruction is cummulative. Ex.: 2d == dd, 3d==ddd, 23d==6d.\n"
+    "Stack usage must be balanced (it can't pop an empty stack)."
   );
 }
 
@@ -180,6 +179,7 @@ const char* read_opts(struct draw_dev_conf* conf, struct global_state* gs,
   const char* filepath = NULL;
   int c;
   int x_unset = 1, y_unset = 1;
+  int tmp;
   while((c = getopt_long(argc,argv,"ho:i:w:H:s:x:y:l:c:",opts,NULL)) != -1) {
     switch(c) {
     case 'h':
@@ -195,19 +195,23 @@ const char* read_opts(struct draw_dev_conf* conf, struct global_state* gs,
       break;
     case 'w':
     case 4:
-      conf->width = atoi(optarg);
-      if(!conf->width) {
+      //width
+      tmp = atoi(optarg);
+      if(tmp <= 0) {
         fprintf(stderr, "Invalid width: %s\n", optarg);
         return NULL;
       }
+      conf->width = (unsigned) tmp;
       break;
     case 'H':
     case 5:
-      conf->height = atoi(optarg);
-      if(!conf->height) {
+      //height
+      tmp = atoi(optarg);
+      if(tmp <= 0) {
         fprintf(stderr, "Invalid height: %s\n", optarg);
         return NULL;
       }
+      conf->height = tmp;
       break;
     case 's':
     case 6:
@@ -230,7 +234,7 @@ const char* read_opts(struct draw_dev_conf* conf, struct global_state* gs,
     case 'l':
     case 9:
       conf->line_width = atof(optarg);
-      if(!conf->line_width) {
+      if(conf->line_width <= 0) {
         fprintf(stderr, "Invalid line_width: %s\n", optarg);
         return NULL;
       }
@@ -249,6 +253,7 @@ const char* read_opts(struct draw_dev_conf* conf, struct global_state* gs,
                 optarg);
         return NULL;
       }
+      break;
     }
   }
   if(x_unset) {
@@ -288,8 +293,7 @@ int push_state(struct global_state *gs)
       gs->stack = tmp;
       gs->stack_max *= 2;
     } else {
-      fputs("Memory allocation error while expanding global state stack",
-            stderr);
+      fputs("Memory allocation error while expanding stack\n", stderr);
       return 1;
     }
   }

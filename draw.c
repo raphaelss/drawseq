@@ -53,6 +53,7 @@ struct draw_dev* draw_init(const struct draw_dev_conf *c)
   d->pw = NewPixelWand();
   PixelSetColor(d->pw, "white");
   if(MagickNewImage(d->mw, c->width, c->height, d->pw) == MagickFalse) {
+    free(d);
     return NULL;
   }
   PixelSetColor(d->pw, "black");
@@ -85,14 +86,15 @@ void draw_line(struct draw_dev* d, double x1, double y1, double x2,
 
 int draw_finish(struct draw_dev* d, const char* filepath)
 {
+  int ret_val = 0;
   MagickDrawImage(d->mw, d->dw);
   if(MagickWriteImage(d->mw, filepath) == MagickFalse) {
-    return 1;
+    ret_val = 1;
   }
   DestroyPixelWand(d->pw);
   DestroyDrawingWand(d->dw);
   DestroyMagickWand(d->mw);
   MagickWandTerminus();
   free(d);
-  return 0;
+  return ret_val;
 }
