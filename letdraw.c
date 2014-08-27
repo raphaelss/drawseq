@@ -114,7 +114,7 @@ int main(int argc, char **argv)
     return 1;
   }
   int ch;
-  while((ch = getc(fin)) != EOF && !(do_char(ch, &gs, dr)));
+  while((ch = getc(fin)) != EOF && do_char(ch, &gs, dr));
   update_state_draw(&gs, dr);
   if(draw_finish(dr, filepath)) {
     fprintf(stderr, "Error writing image (%s)\n", filepath);
@@ -350,14 +350,14 @@ int do_char(int ch, struct global_state *gs, struct draw_dev *dr)
   while(ptr->ch) {
     if(ch == ptr->ch) {
       if(ptr->operation(gs, dr)) {
-        return 1;
+        return 0;
       }
       gs->repeat_count = 1;
-      return 0;
+      return 1;
     }
     ++ptr;
   }
-  return 0;
+  return 1;
 }
 
 int op_line(struct global_state* gs, struct draw_dev* dr)
