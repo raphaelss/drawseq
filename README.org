@@ -12,7 +12,7 @@ characters as instructions for a drawing machine.
 - =>= :: Turn 15 degrees clockwise
 - =[= :: Push state (position and direction) into stack
 - =]= :: Pop state (position and direction) from stack
-  - Stack usage must be balanced (it can't pop an empty stack).
+  - Stack usage must be balanced (can't pop an empty stack).
 - =o= :: Move to origin without drawing
 - =r= :: Move to origin without drawing and reset angle to 0 degrees
 - =#= :: Execute next instruction =#= times
