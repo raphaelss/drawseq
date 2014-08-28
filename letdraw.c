@@ -344,7 +344,7 @@ int do_char(int ch, struct global_state *gs, struct draw_dev *dr)
 {
   if(isdigit(ch)) {
     gs->repeat_count *= ch - '0';
-    return 0;
+    return 1;
   }
   struct instruction* ptr = instructions;
   while(ptr->ch) {

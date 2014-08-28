@@ -14,4 +14,3 @@ draw.o: draw.c draw.h
 
 clean:
 	rm -f *.o $(EXE)
-
