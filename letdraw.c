@@ -41,11 +41,6 @@ struct global_state {
   unsigned stack_n, stack_max, d_count, repeat_count;
 };
 
-struct instruction {
-  char ch;
-  int (*operation)(struct global_state*, struct draw_dev*);
-};
-
 void usage(void);
 const char* read_opts(struct draw_dev_conf* conf, struct global_state* gs,
                       const char** filename, int argc, char** argv);
@@ -66,18 +61,6 @@ int op_push_stack(struct global_state* gs, struct draw_dev* dr);
 int op_pop_stack(struct global_state* gs, struct draw_dev* dr);
 int op_15deg_counterclockwise(struct global_state* gs, struct draw_dev* dr);
 int op_15deg_clockwise(struct global_state* gs, struct draw_dev* dr);
-
-struct instruction instructions [] = {
-  {'d', op_line},
-  {'u', op_move},
-  {'r', op_reset},
-  {'o', op_move_to_origin},
-  {'[', op_push_stack},
-  {']', op_pop_stack},
-  {'<', op_15deg_counterclockwise},
-  {'>', op_15deg_clockwise},
-  {0}
-};
 
 int main(int argc, char **argv)
 {
@@ -346,31 +329,50 @@ int do_char(int ch, struct global_state *gs, struct draw_dev *dr)
     gs->repeat_count *= ch - '0';
     return 1;
   }
-  struct instruction* ptr = instructions;
-  while(ptr->ch) {
-    if(ch == ptr->ch) {
-      if(ptr->operation(gs, dr)) {
-        return 0;
-      }
-      gs->repeat_count = 1;
-      return 1;
-    }
-    ++ptr;
+  int return_val = 1;
+  switch(ch) {
+  case 'd':
+    return_val = op_line(gs, dr);
+    break;
+  case 'u':
+    return_val = op_move(gs, dr);
+    break;
+  case 'r':
+    return_val = op_reset(gs, dr);
+    break;
+  case 'o':
+    return_val = op_move_to_origin(gs, dr);
+    break;
+  case '[':
+    return_val = op_push_stack(gs, dr);
+    break;
+  case ']':
+    return_val =  op_pop_stack(gs, dr);
+    break;
+  case '<':
+    return_val =  op_15deg_counterclockwise(gs, dr);
+    break;
+  case '>':
+    return_val =  op_15deg_clockwise(gs, dr);
+    break;
+  default:
+    return 1;
   }
-  return 1;
+  gs->repeat_count = 1;
+  return return_val;
 }
 
 int op_line(struct global_state* gs, struct draw_dev* dr)
 {
   gs->d_count += gs->repeat_count;
-  return 0;
+  return 1;
 }
 
 int op_move(struct global_state* gs, struct draw_dev* dr)
 {
   update_state_draw(gs, dr);
   update_state(&gs->current, gs->repeat_count);
-  return 0;
+  return 1;
 }
 
 int op_reset(struct global_state* gs, struct draw_dev* dr)
@@ -379,7 +381,7 @@ int op_reset(struct global_state* gs, struct draw_dev* dr)
   gs->current.angle = 0;
   gs->current.x = 0;
   gs->current.y = 0;
-  return 0;
+  return 1;
 }
 
 int op_move_to_origin(struct global_state* gs, struct draw_dev* dr)
@@ -387,7 +389,7 @@ int op_move_to_origin(struct global_state* gs, struct draw_dev* dr)
   update_state_draw(gs, dr);
   gs->current.x = 0;
   gs->current.y = 0;
-  return 0;
+  return 1;
 }
 
 int op_push_stack(struct global_state* gs, struct draw_dev* dr)
@@ -395,10 +397,10 @@ int op_push_stack(struct global_state* gs, struct draw_dev* dr)
   update_state_draw(gs, dr);
   while(gs->repeat_count--) {
     if(push_state(gs)) {
-      return 1;
+      return 0;
     }
   }
-  return 0;
+  return 1;
 }
 
 int op_pop_stack(struct global_state* gs, struct draw_dev* dr)
@@ -406,17 +408,17 @@ int op_pop_stack(struct global_state* gs, struct draw_dev* dr)
   update_state_draw(gs, dr);
   while(gs->repeat_count--) {
     if(pop_state(gs)) {
-      return 1;
+      return 0;
     }
   }
-  return 0;
+  return 1;
 }
 
 int op_15deg_counterclockwise(struct global_state* gs, struct draw_dev* dr)
 {
   update_state_draw(gs, dr);
   gs->current.angle = (gs->current.angle + gs->repeat_count) % 24;
-  return 0;
+  return 1;
 }
 
 int op_15deg_clockwise(struct global_state* gs, struct draw_dev* dr)
@@ -427,5 +429,5 @@ int op_15deg_clockwise(struct global_state* gs, struct draw_dev* dr)
   } else {
     gs->current.angle = 24 - (gs->repeat_count - gs->current.angle);
   }
-  return 0;
+  return 1;
 }

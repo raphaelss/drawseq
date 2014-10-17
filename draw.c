@@ -53,6 +53,9 @@ struct draw_dev* draw_init(const struct draw_dev_conf *c)
   d->pw = NewPixelWand();
   PixelSetColor(d->pw, "white");
   if(MagickNewImage(d->mw, c->width, c->height, d->pw) == MagickFalse) {
+    DestroyMagickWand(d->mw);
+    DestroyDrawingWand(d->dw);
+    DestroyPixelWand(d->pw);
     free(d);
     return NULL;
   }
