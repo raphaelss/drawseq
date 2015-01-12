@@ -1,10 +1,10 @@
-* Letdraw
+# Letdraw
 
 Command-line drawing tool.
 Letdraw reads one character at a time from input and interprets the supported
 characters as instructions for a drawing machine.
 
-** Supported characters
+## Supported characters
 
 - =d= :: Move forward drawing line
 - =u= :: Move forward without drawing
@@ -19,7 +19,7 @@ characters as instructions for a drawing machine.
   - =#= = any single digit number.
   - =#= instruction is cummulative. Ex.: =2d= = =dd=, =3d= = =ddd=, =23d= = =6d=
 
-** Numeric repeat instructions
+## Numeric repeat instructions
 
 Numbers are interpreted as an instruction to execute the next operation /n/
 times.
@@ -33,7 +33,7 @@ In this case, the next instruction is also =2=. This causes =d= to be
 executed 4 (2*2) times (same as =dddd=). =235d= as another example,
 would execute =d= 30 (2*3*5) times.
 
-* Usage
+# Usage
 
 #+BEGIN_EXAMPLE
 Usage: letdraw --out=FILE [OPTION]
@@ -61,12 +61,12 @@ Supported characters:
   o : Move to origin without drawing
   r : Move to origin without drawing and reset angle to 0 degrees
   # : Repeat next instruction # times
-# == any single digit number.
-# instruction is cumulative. Ex.: 2d = dd, 3d = ddd, 23d = 6d.
+\# == any single digit number.
+\# instruction is cumulative. Ex.: 2d = dd, 3d = ddd, 23d = 6d.
 Stack usage must be balanced (can't pop an empty stack).
 #+END_EXAMPLE
 
-* License
+# License
 
 (See COPYING.txt for the GNU GENERAL PUBLIC LICENSE)
 

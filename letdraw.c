@@ -1,24 +1,9 @@
 /***
- *  letdraw: command-line drawing tool
- *    - see README.mdown for instructions
- *
- *  Copyright (C) 2014  Raphael Sousa Santos, http://www.raphaelss.com/
- *
- *  This file is part of letdraw.
- *
- *  Letdraw is free software: you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation, either version 3 of the License, or
- *  (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
- ***/
+* letdraw: command-line drawing tool
+*   - see README.mdown for instructions
+* Copyright (C) 2015  Raphael Santos, http://www.raphaelss.com/
+* MIT License
+***/
 
 #include <stdio.h>
 #include <string.h>
@@ -27,161 +12,117 @@
 #include <stdlib.h>
 #include <getopt.h>
 #include "draw.h"
-
-#define STACK_ALLOC 20
-
-struct state {
-  double x, y;
-  unsigned angle;
-};
-
-struct global_state {
-  struct state *stack;
-  struct state current;
-  unsigned stack_n, stack_max, d_count, repeat_count;
-};
-
-struct instruction {
-  char ch;
-  int (*operation)(struct global_state*, struct draw_dev*);
-};
+#include "state.h"
 
 void usage(void);
-const char* read_opts(struct draw_dev_conf* conf, struct global_state* gs,
-                      const char** filename, int argc, char** argv);
-int init_global_state(struct global_state* gs);
-void release_global_state(struct global_state* gs);
-int push_state(struct global_state* gs);
-int pop_state(struct global_state* gs);
-void update_state(struct state* s, double dist);
-void update_state_draw(struct global_state* gs, struct draw_dev* dr);
-int do_char(int ch, struct global_state* gs, struct draw_dev* dr);
+const char *read_opts(struct draw_dev_conf *conf, struct state_stack *sst,
+                      const char **infile, int argc, char **argv);
+void update_state(struct state *s, double dist);
+void update_state_draw(struct state_stack *sst, struct draw_dev *dr);
+int do_char(int ch, struct state_stack *sst, struct draw_dev *dr);
 
 //Operations
-int op_line(struct global_state* gs, struct draw_dev* dr);
-int op_move(struct global_state* gs, struct draw_dev* dr);
-int op_reset(struct global_state* gs, struct draw_dev* dr);
-int op_move_to_origin(struct global_state* gs, struct draw_dev* dr);
-int op_push_stack(struct global_state* gs, struct draw_dev* dr);
-int op_pop_stack(struct global_state* gs, struct draw_dev* dr);
-int op_15deg_counterclockwise(struct global_state* gs, struct draw_dev* dr);
-int op_15deg_clockwise(struct global_state* gs, struct draw_dev* dr);
+int op_line(struct state_stack *sst, struct draw_dev *dr);
+int op_move(struct state_stack *sst, struct draw_dev *dr);
+int op_reset(struct state_stack *sst, struct draw_dev *dr);
+int op_move_to_origin(struct state_stack *sst, struct draw_dev *dr);
+int op_push_stack(struct state_stack *sst, struct draw_dev *dr);
+int op_pop_stack(struct state_stack *sst, struct draw_dev *dr);
+int op_15deg_counterclockwise(struct state_stack *sst, struct draw_dev *dr);
+int op_15deg_clockwise(struct state_stack *sst, struct draw_dev *dr);
 
-struct instruction instructions [] = {
-  {'d', op_line},
-  {'u', op_move},
-  {'r', op_reset},
-  {'o', op_move_to_origin},
-  {'[', op_push_stack},
-  {']', op_pop_stack},
-  {'<', op_15deg_counterclockwise},
-  {'>', op_15deg_clockwise},
-  {0}
-};
-
-int main(int argc, char **argv)
+int
+main(int argc, char **argv)
 {
-  struct global_state gs;
+  struct state_stack sst;
   struct draw_dev_conf conf;
   draw_dev_conf_default(&conf);
-  const char* infile = NULL;
+  const char *infile = NULL;
   FILE *fin = stdin;
-  const char* filepath = read_opts(&conf, &gs, &infile, argc, argv);
-  if(!filepath) {
+  const char *filepath = read_opts(&conf, &sst, &infile, argc, argv);
+  if (!filepath) {
     usage();
     return 1;
   }
-  if(infile) {
-    if(!(fin = fopen(infile, "r"))) {
+  if (infile) {
+    if (!(fin = fopen(infile, "r"))) {
       fprintf(stderr, "Error opening file: %s\n", infile);
       return 1;
     }
   }
-  if(init_global_state(&gs)) {
-    fputs("Memory allocation error while initializing global state", stderr);
-    if(infile) {
+  if (init_state_stack(&sst)) {
+    fputs("Memory allocation error while initializing state stack", stderr);
+    if (infile) {
       fclose(fin);
     }
     return 1;
   }
-  struct draw_dev* dr = draw_init(&conf);
-  if(!dr) {
+  struct draw_dev *dr = draw_init(&conf);
+  if (!dr) {
     fputs("Error initializing drawing system", stderr);
-    release_global_state(&gs);
-    if(infile) {
+    release_state_stack(&sst);
+    if (infile) {
       fclose(fin);
     }
     return 1;
   }
   int ch;
-  while((ch = getc(fin)) != EOF && do_char(ch, &gs, dr));
-  update_state_draw(&gs, dr);
-  if(draw_finish(dr, filepath)) {
+  while ((ch = getc(fin)) != EOF && do_char(ch, &sst, dr));
+  update_state_draw(&sst, dr);
+  if (draw_finish(dr, filepath)) {
     fprintf(stderr, "Error writing image (%s)\n", filepath);
   }
-  release_global_state(&gs);
-  if(infile) {
+  release_state_stack(&sst);
+  if (infile) {
     fclose(fin);
   }
   return 0;
 }
 
-void usage(void)
+void
+usage(void)
 {
-  puts
-    (
-     "Usage: letdraw --out=FILE [OPTION]\n"
-     "  -h --help                Display this message\n"
-     "  -o --out=*.(pdf|png)     Output file (required)\n"
-     "  -i --in=FILE             Input file containing sequence of characters\n"
-     "                           If no file is specified, letdraw reads from\n"
-     "                           STDIN\n"
-     "  -w --width=NATURAL       Width of image canvas (default: 800)\n"
-     "  -H --height=NATURAL      Height of image canvas (default: 600)\n"
-     "  -x --origin_x=REAL       X of starting point (default: width/2)\n"
-     "  -y --origin_y=REAL       Y of starting point (default: height/2)\n"
-     "  -s --scale=REAL>0        Scale drawing lines (default: 1.0)\n"
-     "  -l --line_width=REAL>0   Width of line stroke (default: 2.0)\n"
-     "  -c --line_cap=(normal|round|square) Line end shape (default: normal)\n"
-     "Letdraw reads characters and treats some of them as instructions for a \n"
-     "drawing machine while ignoring the others.\n"
-     "Supported characters:\n"
-     "  d : Move forward drawing line\n"
-     "  u : Move forward without drawing\n"
-     "  < : Turn 15 degrees counterclockwise\n"
-     "  > : Turn 15 degrees clockwise\n"
-     "  [ : Push state (position and direction) into stack\n"
-     "  ] : Pop state (position and direction) from stack\n"
-     "  o : Move to origin without drawing\n"
-     "  r : Move to origin without drawing and reset angle to 0 degrees\n"
-     "  # : Execute next instruction # times\n"
-     "# = any single digit number.\n"
-     "# instruction is cumulative. Ex.: 2d = dd, 3d = ddd, 23d = 6d.\n"
-     "Stack usage must be balanced (can't pop an empty stack)."
-     );
+  puts(
+    "Usage: letdraw --out=FILE [OPTION]\n"
+    "  -h            Display this message\n"
+    "  -o            Output file (required)\n"
+    "  -i            Input file containing sequence of characters\n"
+    "                  If no file is specified, letdraw reads from\n"
+    "                  STDIN\n"
+    "  -w NATURAL    Width of image canvas (default: 800)\n"
+    "  -H NATURAL    Height of image canvas (default: 600)\n"
+    "  -x REAL       X of starting point (default: width/2)\n"
+    "  -y REAL       Y of starting point (default: height/2)\n"
+    "  -s REAL>0     Scale drawing lines (default: 1.0)\n"
+    "  -l REAL>0     Width of line stroke (default: 2.0)\n"
+    "  -c (normal|round|square) Line end shape (default: normal)\n"
+    "Letdraw reads characters and treats some of them as instructions for a\n"
+    " drawing machine while ignoring the others.\n"
+    "Supported characters:\n"
+    "  d : Move forward drawing line\n"
+    "  u : Move forward without drawing\n"
+    "  < : Turn 15 degrees counterclockwise\n"
+    "  > : Turn 15 degrees clockwise\n"
+    "  [ : Push state (position and direction) into stack\n"
+    "  ] : Pop state (position and direction) from stack\n"
+    "  o : Move to origin without drawing\n"
+    "  r : Move to origin without drawing and reset angle to 0 degrees\n"
+    "  # : Execute next instruction # times\n"
+    "# = any single digit number.\n"
+    "# instruction is cumulative. Ex.: 2d = dd, 3d = ddd, 23d = 6d.\n"
+    "Stack usage must be balanced (can't pop an empty stack)."
+  );
 }
 
-const char* read_opts(struct draw_dev_conf* conf, struct global_state* gs,
-                      const char** infile, int argc, char **argv)
+const char *
+read_opts(struct draw_dev_conf *conf, struct state_stack *sst,
+          const char **infile, int argc, char **argv)
 {
-  static struct option opts [] = {
-    {"help", no_argument, NULL, 1},
-    {"out", required_argument, NULL, 2},
-    {"in", required_argument, NULL, 3},
-    {"width", required_argument, NULL, 4},
-    {"height", required_argument, NULL, 5},
-    {"scale", required_argument, NULL, 6},
-    {"origin_x", required_argument, NULL, 7},
-    {"origin_y", required_argument, NULL, 8},
-    {"line_width", required_argument, NULL, 9},
-    {"line_cap", required_argument, NULL, 10},
-    {0,0,0,0}
-  };
-  const char* filepath = NULL;
+  const char *filepath = NULL;
   int c;
   int x_unset = 1, y_unset = 1;
   int tmp;
-  while((c = getopt_long(argc,argv,"ho:i:w:H:s:x:y:l:c:",opts,NULL)) != -1) {
+  while ((c = getopt(argc,argv,"ho:i:w:H:s:x:y:l:c:")) != -1) {
     switch(c) {
     case 'h':
     case 1:
@@ -198,7 +139,7 @@ const char* read_opts(struct draw_dev_conf* conf, struct global_state* gs,
     case 4:
       //width
       tmp = atoi(optarg);
-      if(tmp <= 0) {
+      if (tmp <= 0) {
         fprintf(stderr, "Invalid width: %s\n", optarg);
         return NULL;
       }
@@ -208,7 +149,7 @@ const char* read_opts(struct draw_dev_conf* conf, struct global_state* gs,
     case 5:
       //height
       tmp = atoi(optarg);
-      if(tmp <= 0) {
+      if (tmp <= 0) {
         fprintf(stderr, "Invalid height: %s\n", optarg);
         return NULL;
       }
@@ -217,7 +158,7 @@ const char* read_opts(struct draw_dev_conf* conf, struct global_state* gs,
     case 's':
     case 6:
       conf->scale = atof(optarg);
-      if(conf->scale <= 0) {
+      if (conf->scale <= 0) {
         fprintf(stderr, "Invalid scale: %s\n", optarg);
         return NULL;
       }
@@ -235,18 +176,18 @@ const char* read_opts(struct draw_dev_conf* conf, struct global_state* gs,
     case 'l':
     case 9:
       conf->line_width = atof(optarg);
-      if(conf->line_width <= 0) {
+      if (conf->line_width <= 0) {
         fprintf(stderr, "Invalid line_width: %s\n", optarg);
         return NULL;
       }
       break;
     case 'c':
     case 10:
-      if(!(strncmp("normal", optarg, 6))) {
+      if (!(strncmp("normal", optarg, 6))) {
         conf->line_cap = DRAW_DEV_CAP_BUTT;
-      } else if(!(strncmp("round", optarg, 5))) {
+      } else if (!(strncmp("round", optarg, 5))) {
         conf->line_cap = DRAW_DEV_CAP_ROUND;
-      } else if(!(strncmp("square", optarg, 5))) {
+      } else if (!(strncmp("square", optarg, 5))) {
         conf->line_cap = DRAW_DEV_CAP_SQUARE;
       } else {
         fprintf(stderr, "Invalid line_cap: %s "
@@ -257,175 +198,159 @@ const char* read_opts(struct draw_dev_conf* conf, struct global_state* gs,
       break;
     }
   }
-  if(x_unset) {
+  if (x_unset) {
     conf->origin_x = conf->width/2.0;
   }
-  if(y_unset) {
+  if (y_unset) {
     conf->origin_y = conf->height/2.0;
   }
   return filepath;
 }
 
-int init_global_state(struct global_state *gs)
-{
-  if(!(gs->stack = malloc(sizeof(struct state) * STACK_ALLOC))) {
-    return 1;
-  }
-  gs->current.x = 0;
-  gs->current.y = 0;
-  gs->current.angle = 0;
-  gs->stack_n = 0;
-  gs->stack_max = STACK_ALLOC;
-  gs->d_count = 0;
-  gs->repeat_count = 1;
-  return 0;
-}
-
-void release_global_state(struct global_state *gs)
-{
-  free(gs->stack);
-}
-
-int push_state(struct global_state *gs)
-{
-  if(gs->stack_n == gs->stack_max) {
-    struct state *tmp = realloc(gs->stack, sizeof(*tmp)*gs->stack_max*2);
-    if(tmp) {
-      gs->stack = tmp;
-      gs->stack_max *= 2;
-    } else {
-      fputs("Memory allocation error while expanding stack\n", stderr);
-      return 1;
-    }
-  }
-  gs->stack[gs->stack_n++] = gs->current;
-  return 0;
-}
-
-int pop_state(struct global_state *gs)
-{
-  if(gs->stack_n > 0) {
-    gs->current = gs->stack[--gs->stack_n];
-    return 0;
-  }
-  fputs("Stack error", stderr);
-  return 1;
-}
-
-void update_state(struct state *s, double dist)
+void
+update_state(struct state *s, double dist)
 {
   static double trig15 [] = {0, 0.25882, 0.5, 0.70711, 0.86603, 0.96593, 1};
-  if(s->angle < 7) {
-    s->x -= dist * trig15[s->angle];
-    s->y -= dist * trig15[6-s->angle];
+  if (s->angle < 7) {
+    s->x -= dist  *trig15[s->angle];
+    s->y -= dist  *trig15[6-s->angle];
   } else if (s->angle < 13) {
-    s->x -= dist * trig15[12-s->angle];
-    s->y += dist * trig15[s->angle-6];
+    s->x -= dist  *trig15[12-s->angle];
+    s->y += dist  *trig15[s->angle-6];
   } else if (s->angle < 19) {
-    s->x += dist * trig15[s->angle-12];
-    s->y += dist * trig15[18-s->angle];
+    s->x += dist  *trig15[s->angle-12];
+    s->y += dist  *trig15[18-s->angle];
   } else {
-    s->x += dist * trig15[24-s->angle];
-    s->y -= dist * trig15[s->angle-18];
+    s->x += dist  *trig15[24-s->angle];
+    s->y -= dist  *trig15[s->angle-18];
   }
 }
 
-void update_state_draw(struct global_state *gs, struct draw_dev *dr)
+void
+update_state_draw(struct state_stack *sst, struct draw_dev *dr)
 {
-  if(gs->d_count > 0) {
-    double sx = gs->current.x, sy = gs->current.y;
-    update_state(&gs->current, gs->d_count);
-    draw_line(dr, sx, sy, gs->current.x, gs->current.y);
-    gs->d_count = 0;
+  if (sst->d_count > 0) {
+    double sx = sst->current.x, sy = sst->current.y;
+    update_state(&sst->current, sst->d_count);
+    draw_line(dr, sx, sy, sst->current.x, sst->current.y);
+    sst->d_count = 0;
   }
 }
 
-int do_char(int ch, struct global_state *gs, struct draw_dev *dr)
+int
+do_char(int ch, struct state_stack *sst, struct draw_dev *dr)
 {
-  if(isdigit(ch)) {
-    gs->repeat_count *= ch - '0';
+  if (isdigit(ch)) {
+    sst->repeat_count *= ch - '0';
     return 1;
   }
-  struct instruction* ptr = instructions;
-  while(ptr->ch) {
-    if(ch == ptr->ch) {
-      if(ptr->operation(gs, dr)) {
-        return 0;
-      }
-      gs->repeat_count = 1;
-      return 1;
+  int return_val = 1;
+  switch(ch) {
+  case 'd':
+    return_val = op_line(sst, dr);
+    break;
+  case 'u':
+    return_val = op_move(sst, dr);
+    break;
+  case 'r':
+    return_val = op_reset(sst, dr);
+    break;
+  case 'o':
+    return_val = op_move_to_origin(sst, dr);
+    break;
+  case '[':
+    return_val = op_push_stack(sst, dr);
+    break;
+  case ']':
+    return_val =  op_pop_stack(sst, dr);
+    break;
+  case '<':
+    return_val =  op_15deg_counterclockwise(sst, dr);
+    break;
+  case '>':
+    return_val =  op_15deg_clockwise(sst, dr);
+    break;
+  default:
+    return 1;
+  }
+  sst->repeat_count = 1;
+  return return_val;
+}
+
+int
+op_line(struct state_stack *sst, struct draw_dev *dr)
+{
+  sst->d_count += sst->repeat_count;
+  return 1;
+}
+
+int
+op_move(struct state_stack *sst, struct draw_dev *dr)
+{
+  update_state_draw(sst, dr);
+  update_state(&sst->current, sst->repeat_count);
+  return 1;
+}
+
+int
+op_reset(struct state_stack *sst, struct draw_dev *dr)
+{
+  update_state_draw(sst, dr);
+  sst->current.angle = 0;
+  sst->current.x = 0;
+  sst->current.y = 0;
+  return 1;
+}
+
+int
+op_move_to_origin(struct state_stack *sst, struct draw_dev *dr)
+{
+  update_state_draw(sst, dr);
+  sst->current.x = 0;
+  sst->current.y = 0;
+  return 1;
+}
+
+int
+op_push_stack(struct state_stack *sst, struct draw_dev *dr)
+{
+  update_state_draw(sst, dr);
+  while (sst->repeat_count--) {
+    if (push_state(sst)) {
+      return 0;
     }
-    ++ptr;
   }
   return 1;
 }
 
-int op_line(struct global_state* gs, struct draw_dev* dr)
+int
+op_pop_stack(struct state_stack *sst, struct draw_dev *dr)
 {
-  gs->d_count += gs->repeat_count;
-  return 0;
-}
-
-int op_move(struct global_state* gs, struct draw_dev* dr)
-{
-  update_state_draw(gs, dr);
-  update_state(&gs->current, gs->repeat_count);
-  return 0;
-}
-
-int op_reset(struct global_state* gs, struct draw_dev* dr)
-{
-  update_state_draw(gs, dr);
-  gs->current.angle = 0;
-  gs->current.x = 0;
-  gs->current.y = 0;
-  return 0;
-}
-
-int op_move_to_origin(struct global_state* gs, struct draw_dev* dr)
-{
-  update_state_draw(gs, dr);
-  gs->current.x = 0;
-  gs->current.y = 0;
-  return 0;
-}
-
-int op_push_stack(struct global_state* gs, struct draw_dev* dr)
-{
-  update_state_draw(gs, dr);
-  while(gs->repeat_count--) {
-    if(push_state(gs)) {
-      return 1;
+  update_state_draw(sst, dr);
+  while (sst->repeat_count--) {
+    if (pop_state(sst)) {
+      return 0;
     }
   }
-  return 0;
+  return 1;
 }
 
-int op_pop_stack(struct global_state* gs, struct draw_dev* dr)
+int
+op_15deg_counterclockwise(struct state_stack *sst, struct draw_dev *dr)
 {
-  update_state_draw(gs, dr);
-  while(gs->repeat_count--) {
-    if(pop_state(gs)) {
-      return 1;
-    }
-  }
-  return 0;
+  update_state_draw(sst, dr);
+  sst->current.angle = (sst->current.angle + sst->repeat_count) % 24;
+  return 1;
 }
 
-int op_15deg_counterclockwise(struct global_state* gs, struct draw_dev* dr)
+int
+op_15deg_clockwise(struct state_stack *sst, struct draw_dev *dr)
 {
-  update_state_draw(gs, dr);
-  gs->current.angle = (gs->current.angle + gs->repeat_count) % 24;
-  return 0;
-}
-
-int op_15deg_clockwise(struct global_state* gs, struct draw_dev* dr)
-{
-  update_state_draw(gs, dr);
-  if(gs->current.angle >= gs->repeat_count) {
-    gs->current.angle -= gs->repeat_count;
+  update_state_draw(sst, dr);
+  if (sst->current.angle >= sst->repeat_count) {
+    sst->current.angle -= sst->repeat_count;
   } else {
-    gs->current.angle = 24 - (gs->repeat_count - gs->current.angle);
+    sst->current.angle = 24 - (sst->repeat_count - sst->current.angle);
   }
-  return 0;
+  return 1;
 }

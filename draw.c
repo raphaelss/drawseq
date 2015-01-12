@@ -1,23 +1,8 @@
 /***
-*  letdraw: command-line drawing tool
-*    - see README.mdown for instructions
-*
-*  Copyright (C) 2014  Raphael Sousa Santos, http://www.raphaelss.com/
-*
-*  This file is part of letdraw.
-*
-*  Letdraw is free software: you can redistribute it and/or modify
-*  it under the terms of the GNU General Public License as published by
-*  the Free Software Foundation, either version 3 of the License, or
-*  (at your option) any later version.
-*
-*  This program is distributed in the hope that it will be useful,
-*  but WITHOUT ANY WARRANTY; without even the implied warranty of
-*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-*  GNU General Public License for more details.
-*
-*  You should have received a copy of the GNU General Public License
-*  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+* letdraw: command-line drawing tool
+*   - see README.mdown for instructions
+* Copyright (C) 2015  Raphael Santos, http://www.raphaelss.com/
+* MIT License
 ***/
 
 #include "draw.h"
@@ -25,12 +10,13 @@
 #include <wand/magick_wand.h>
 
 struct draw_dev {
-  MagickWand* mw;
-  DrawingWand* dw;
-  PixelWand* pw;
+  MagickWand *mw;
+  DrawingWand *dw;
+  PixelWand *pw;
 };
 
-void draw_dev_conf_default(struct draw_dev_conf* c)
+void
+draw_dev_conf_default(struct draw_dev_conf *c)
 {
   c->width = 800;
   c->height = 600;
@@ -41,21 +27,19 @@ void draw_dev_conf_default(struct draw_dev_conf* c)
   c->line_cap = DRAW_DEV_CAP_BUTT;
 }
 
-struct draw_dev* draw_init(const struct draw_dev_conf *c)
+struct draw_dev *
+draw_init(const struct draw_dev_conf *c)
 {
   MagickWandGenesis();
-  struct draw_dev* d = malloc(sizeof *d);
-  if(!d) {
-    return NULL;
-  }
+  struct draw_dev *d = malloc(sizeof *d);
+  if (!d)
+    goto exit;
   d->mw = NewMagickWand();
   d->dw = NewDrawingWand();
   d->pw = NewPixelWand();
   PixelSetColor(d->pw, "white");
-  if(MagickNewImage(d->mw, c->width, c->height, d->pw) == MagickFalse) {
-    free(d);
-    return NULL;
-  }
+  if (MagickNewImage(d->mw, c->width, c->height, d->pw) == MagickFalse)
+    goto clean_up;
   PixelSetColor(d->pw, "black");
   DrawSetStrokeAntialias(d->dw, 1);
   DrawSetStrokeOpacity(d->dw, 1);
@@ -76,19 +60,30 @@ struct draw_dev* draw_init(const struct draw_dev_conf *c)
   DrawTranslate(d->dw, c->origin_x, c->origin_y);
   DrawScale(d->dw, c->scale, c->scale);
   return d;
+clean_up:
+  DestroyMagickWand(d->mw);
+  DestroyDrawingWand(d->dw);
+  DestroyPixelWand(d->pw);
+  free(d);
+exit:
+  return NULL;
 }
 
-void draw_line(struct draw_dev* d, double x1, double y1, double x2,
-               double y2)
+void
+draw_line(struct draw_dev *d, double x1, double y1, double x2, double y2)
 {
   DrawLine(d->dw, x1, y1, x2, y2);
 }
 
-int draw_finish(struct draw_dev* d, const char* filepath)
+int
+draw_finish(struct draw_dev *d, const char *filepath)
 {
+  if (!d) {
+    return 0;
+  }
   int ret_val = 0;
   MagickDrawImage(d->mw, d->dw);
-  if(MagickWriteImage(d->mw, filepath) == MagickFalse) {
+  if (MagickWriteImage(d->mw, filepath) == MagickFalse) {
     ret_val = 1;
   }
   DestroyPixelWand(d->pw);
