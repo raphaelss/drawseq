@@ -1,6 +1,6 @@
 /***
 * letdraw: command-line drawing tool
-*   - see README.mdown for instructions
+*   - see README.md for instructions
 * Copyright (C) 2015  Raphael Santos, http://www.raphaelss.com/
 * MIT License
 ***/
@@ -14,12 +14,34 @@
 #include "draw.h"
 #include "position.h"
 
+#define STACK_ALLOC 20
+
+struct state {
+  double x, y;
+  unsigned angle;
+};
+
+struct global_state {
+  struct state *stack;
+  struct state current;
+  unsigned stack_n, stack_max, d_count, repeat_count;
+};
+
 void usage(void);
 const char *read_opts(struct draw_dev_conf *conf, struct position_stack *st,
                       const char **infile, int argc, char **argv);
 
-int
-main(int argc, char **argv)
+//Operations
+int op_line(struct global_state* gs, struct draw_dev* dr);
+int op_move(struct global_state* gs, struct draw_dev* dr);
+int op_reset(struct global_state* gs, struct draw_dev* dr);
+int op_move_to_origin(struct global_state* gs, struct draw_dev* dr);
+int op_push_stack(struct global_state* gs, struct draw_dev* dr);
+int op_pop_stack(struct global_state* gs, struct draw_dev* dr);
+int op_15deg_counterclockwise(struct global_state* gs, struct draw_dev* dr);
+int op_15deg_clockwise(struct global_state* gs, struct draw_dev* dr);
+
+int main(int argc, char **argv)
 {
   struct position_stack st;
   struct draw_dev_conf conf;

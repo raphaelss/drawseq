@@ -1,6 +1,6 @@
 /***
 * letdraw: command-line drawing tool
-*   - see README.mdown for instructions
+*   - see README.md for instructions
 * Copyright (C) 2015  Raphael Santos, http://www.raphaelss.com/
 * MIT License
 ***/
