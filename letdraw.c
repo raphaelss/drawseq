@@ -12,34 +12,21 @@
 #include <stdlib.h>
 #include <getopt.h>
 #include "draw.h"
-#include "state.h"
+#include "position.h"
 
 void usage(void);
-const char *read_opts(struct draw_dev_conf *conf, struct state_stack *sst,
+const char *read_opts(struct draw_dev_conf *conf, struct position_stack *st,
                       const char **infile, int argc, char **argv);
-void update_state(struct state *s, double dist);
-void update_state_draw(struct state_stack *sst, struct draw_dev *dr);
-int do_char(int ch, struct state_stack *sst, struct draw_dev *dr);
-
-//Operations
-int op_line(struct state_stack *sst, struct draw_dev *dr);
-int op_move(struct state_stack *sst, struct draw_dev *dr);
-int op_reset(struct state_stack *sst, struct draw_dev *dr);
-int op_move_to_origin(struct state_stack *sst, struct draw_dev *dr);
-int op_push_stack(struct state_stack *sst, struct draw_dev *dr);
-int op_pop_stack(struct state_stack *sst, struct draw_dev *dr);
-int op_15deg_counterclockwise(struct state_stack *sst, struct draw_dev *dr);
-int op_15deg_clockwise(struct state_stack *sst, struct draw_dev *dr);
 
 int
 main(int argc, char **argv)
 {
-  struct state_stack sst;
+  struct position_stack st;
   struct draw_dev_conf conf;
   draw_dev_conf_default(&conf);
   const char *infile = NULL;
   FILE *fin = stdin;
-  const char *filepath = read_opts(&conf, &sst, &infile, argc, argv);
+  const char *filepath = read_opts(&conf, &st, &infile, argc, argv);
   if (!filepath) {
     usage();
     return 1;
@@ -50,29 +37,31 @@ main(int argc, char **argv)
       return 1;
     }
   }
-  if (init_state_stack(&sst)) {
-    fputs("Memory allocation error while initializing state stack", stderr);
+  if (init_position_stack(&st)) {
+    fputs("Memory allocation error while initializing position stack", stderr);
     if (infile) {
       fclose(fin);
     }
     return 1;
   }
-  struct draw_dev *dr = draw_init(&conf);
+  struct draw_dev *dr = draw_dev_init(&conf);
   if (!dr) {
     fputs("Error initializing drawing system", stderr);
-    release_state_stack(&sst);
+    release_position_stack(&st);
     if (infile) {
       fclose(fin);
     }
     return 1;
   }
   int ch;
-  while ((ch = getc(fin)) != EOF && do_char(ch, &sst, dr));
-  update_state_draw(&sst, dr);
+  struct position s = {0};
+  unsigned d_count = 0, repeat_count = 1;
+  while ((ch = getc(fin)) != EOF && do_char(ch, &st, dr));
+  update_position_draw(&s, dr, d_count);
   if (draw_finish(dr, filepath)) {
     fprintf(stderr, "Error writing image (%s)\n", filepath);
   }
-  release_state_stack(&sst);
+  release_position_stack(&st);
   if (infile) {
     fclose(fin);
   }
@@ -103,8 +92,8 @@ usage(void)
     "  u : Move forward without drawing\n"
     "  < : Turn 15 degrees counterclockwise\n"
     "  > : Turn 15 degrees clockwise\n"
-    "  [ : Push state (position and direction) into stack\n"
-    "  ] : Pop state (position and direction) from stack\n"
+    "  [ : Push position (position and direction) into stack\n"
+    "  ] : Pop position (position and direction) from stack\n"
     "  o : Move to origin without drawing\n"
     "  r : Move to origin without drawing and reset angle to 0 degrees\n"
     "  # : Execute next instruction # times\n"
@@ -115,7 +104,7 @@ usage(void)
 }
 
 const char *
-read_opts(struct draw_dev_conf *conf, struct state_stack *sst,
+read_opts(struct draw_dev_conf *conf, struct position_stack *st,
           const char **infile, int argc, char **argv)
 {
   const char *filepath = NULL;
@@ -208,115 +197,96 @@ read_opts(struct draw_dev_conf *conf, struct state_stack *sst,
 }
 
 void
-update_state(struct state *s, double dist)
+update_position_draw(struct position *p, struct draw_dev *dr, unsigned d_count)
 {
-  static double trig15 [] = {0, 0.25882, 0.5, 0.70711, 0.86603, 0.96593, 1};
-  if (s->angle < 7) {
-    s->x -= dist  *trig15[s->angle];
-    s->y -= dist  *trig15[6-s->angle];
-  } else if (s->angle < 13) {
-    s->x -= dist  *trig15[12-s->angle];
-    s->y += dist  *trig15[s->angle-6];
-  } else if (s->angle < 19) {
-    s->x += dist  *trig15[s->angle-12];
-    s->y += dist  *trig15[18-s->angle];
-  } else {
-    s->x += dist  *trig15[24-s->angle];
-    s->y -= dist  *trig15[s->angle-18];
-  }
-}
-
-void
-update_state_draw(struct state_stack *sst, struct draw_dev *dr)
-{
-  if (sst->d_count > 0) {
-    double sx = sst->current.x, sy = sst->current.y;
-    update_state(&sst->current, sst->d_count);
-    draw_line(dr, sx, sy, sst->current.x, sst->current.y);
-    sst->d_count = 0;
+  if (d_count) {
+    double sx = s->x, sy = s->y;
+    update_position(s, d_count);
+    draw_line(dr, sx, sy, s->x, s->y);
   }
 }
 
 int
-do_char(int ch, struct state_stack *sst, struct draw_dev *dr)
+do_char(int ch, struct position_stack *st, struct draw_dev *dr, unsigned d_count,
+        unsigned repeat_count)
 {
   if (isdigit(ch)) {
-    sst->repeat_count *= ch - '0';
+    repeat_count *= ch - '0';
     return 1;
   }
   int return_val = 1;
   switch(ch) {
   case 'd':
-    return_val = op_line(sst, dr);
+    return_val = op_line(st, s, dr);
     break;
   case 'u':
-    return_val = op_move(sst, dr);
+    return_val = op_move(st, dr);
     break;
   case 'r':
-    return_val = op_reset(sst, dr);
+    return_val = op_reset(st, dr);
     break;
   case 'o':
-    return_val = op_move_to_origin(sst, dr);
+    return_val = op_move_to_origin(st, dr);
     break;
   case '[':
-    return_val = op_push_stack(sst, dr);
+    return_val = op_push_stack(st, dr);
     break;
   case ']':
-    return_val =  op_pop_stack(sst, dr);
+    return_val =  op_pop_stack(st, dr);
     break;
   case '<':
-    return_val =  op_15deg_counterclockwise(sst, dr);
+    return_val =  op_15deg_counterclockwise(st, dr);
     break;
   case '>':
-    return_val =  op_15deg_clockwise(sst, dr);
+    return_val =  op_15deg_clockwise(st, dr);
     break;
   default:
     return 1;
   }
-  sst->repeat_count = 1;
+  st->repeat_count = 1;
   return return_val;
 }
 
 int
-op_line(struct state_stack *sst, struct draw_dev *dr)
+op_line(struct position_stack *st, struct draw_dev *dr)
 {
-  sst->d_count += sst->repeat_count;
+  st->d_count += st->repeat_count;
   return 1;
 }
 
 int
-op_move(struct state_stack *sst, struct draw_dev *dr)
+op_move(struct position_stack *st, struct draw_dev *dr)
 {
-  update_state_draw(sst, dr);
-  update_state(&sst->current, sst->repeat_count);
+  update_position_draw(st, dr);
+  update_position(&st->current, st->repeat_count);
   return 1;
 }
 
 int
-op_reset(struct state_stack *sst, struct draw_dev *dr)
+op_reset(struct position_stack *st, struct draw_dev *dr)
 {
-  update_state_draw(sst, dr);
-  sst->current.angle = 0;
-  sst->current.x = 0;
-  sst->current.y = 0;
+  update_position_draw(st, dr);
+  st->current.angle = 0;
+  st->current.x = 0;
+  st->current.y = 0;
   return 1;
 }
 
 int
-op_move_to_origin(struct state_stack *sst, struct draw_dev *dr)
+op_move_to_origin(struct position_stack *st, struct draw_dev *dr)
 {
-  update_state_draw(sst, dr);
-  sst->current.x = 0;
-  sst->current.y = 0;
+  update_position_draw(st, dr);
+  st->current.x = 0;
+  st->current.y = 0;
   return 1;
 }
 
 int
-op_push_stack(struct state_stack *sst, struct draw_dev *dr)
+op_push_stack(struct position_stack *st, struct draw_dev *dr)
 {
-  update_state_draw(sst, dr);
-  while (sst->repeat_count--) {
-    if (push_state(sst)) {
+  update_position_draw(st, dr);
+  while (st->repeat_count--) {
+    if (push_position(st)) {
       return 0;
     }
   }
@@ -324,11 +294,11 @@ op_push_stack(struct state_stack *sst, struct draw_dev *dr)
 }
 
 int
-op_pop_stack(struct state_stack *sst, struct draw_dev *dr)
+op_pop_stack(struct position_stack *st, struct draw_dev *dr)
 {
-  update_state_draw(sst, dr);
-  while (sst->repeat_count--) {
-    if (pop_state(sst)) {
+  update_position_draw(st, dr);
+  while (st->repeat_count--) {
+    if (pop_position(st)) {
       return 0;
     }
   }
@@ -336,21 +306,21 @@ op_pop_stack(struct state_stack *sst, struct draw_dev *dr)
 }
 
 int
-op_15deg_counterclockwise(struct state_stack *sst, struct draw_dev *dr)
+op_15deg_counterclockwise(struct position_stack *st, struct draw_dev *dr)
 {
-  update_state_draw(sst, dr);
-  sst->current.angle = (sst->current.angle + sst->repeat_count) % 24;
+  update_position_draw(st, dr);
+  st->current.angle = (st->current.angle + st->repeat_count) % 24;
   return 1;
 }
 
 int
-op_15deg_clockwise(struct state_stack *sst, struct draw_dev *dr)
+op_15deg_clockwise(struct position_stack *st, struct draw_dev *dr)
 {
-  update_state_draw(sst, dr);
-  if (sst->current.angle >= sst->repeat_count) {
-    sst->current.angle -= sst->repeat_count;
+  update_position_draw(st, dr);
+  if (st->current.angle >= st->repeat_count) {
+    st->current.angle -= st->repeat_count;
   } else {
-    sst->current.angle = 24 - (sst->repeat_count - sst->current.angle);
+    st->current.angle = 24 - (st->repeat_count - st->current.angle);
   }
   return 1;
 }

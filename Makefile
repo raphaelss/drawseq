@@ -1,20 +1,19 @@
-FLAGS = -std=c99 -Wall -pedantic -O3 -flto `pkg-config --cflags MagickWand`
+FLAGS = -std=c99 -Wall -pedantic -O2 `pkg-config --cflags MagickWand`
 LIBS = -lm `pkg-config --libs MagickWand`
-CC = gcc
-HEADERS = draw.h state.h
+HEADERS = draw.h position.h
 EXE = letdraw
 
-letdraw: letdraw.o draw.o state.o
-	$(CC) $(FLAGS) letdraw.o draw.o state.o $(LIBS) -o $(EXE)
+letdraw: letdraw.o draw.o position.o
+	cc $(FLAGS) letdraw.o draw.o position.o $(LIBS) -o $(EXE)
 
 letdraw.o: letdraw.c
-	$(CC) $(FLAGS) -c letdraw.c
+	cc $(FLAGS) -c letdraw.c
 
 draw.o: draw.c draw.h
-	$(CC) $(FLAGS) -c draw.c
+	cc $(FLAGS) -c draw.c
 
-state.o: state.c state.h
-	$(CC) $(FLAGS) -c state.c
+position.o: position.c position.h
+	cc $(FLAGS) -c position.c
 
 clean:
 	rm -f *.o $(EXE)
