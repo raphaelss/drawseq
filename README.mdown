@@ -7,8 +7,8 @@ Supported characters:
 
 d : Move forward drawing line
 u : Move forward without drawing
-< : Turn 15 degrees counterclockwise
-> : Turn 15 degrees clockwise
+\< : Turn 15 degrees counterclockwise
+\> : Turn 15 degrees clockwise
 [ : Push state (position and direction) into stack
 ] : Pop state (position and direction) from stack
 o : Move to origin without drawing
