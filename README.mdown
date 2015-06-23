@@ -5,16 +5,17 @@ drawing machine. Unsupported characters are ignored.
 
 Supported characters:
 
-d : Move forward drawing line
-u : Move forward without drawing
-\< : Turn 15 degrees counterclockwise
-\> : Turn 15 degrees clockwise
-[ : Push state (position and direction) into stack
-] : Pop state (position and direction) from stack
-o : Move to origin without drawing
-r : Move to origin without drawing and reset angle to 0 degrees
-\# : Repeat next instruction # times
+* d : Move forward drawing line
+* u : Move forward without drawing
+* \< : Turn 15 degrees counterclockwise
+* \> : Turn 15 degrees clockwise
+* [ : Push state (position and direction) into stack
+* ] : Pop state (position and direction) from stack
+* o : Move to origin without drawing
+* r : Move to origin without drawing and reset angle to 0 degrees
+* \# : Repeat next instruction # times
 
-\# == any single digit number.
-\# instruction is cumulative. Ex.: 2d = dd, 3d = ddd, 23d = 6d.
+  \# == any single digit number.
+  \# instruction is cumulative. Ex.: 2d = dd, 3d = ddd, 23d = 6d.
+
 Stack usage must be balanced (can't pop an empty stack).
