@@ -36,7 +36,7 @@ int main(int argc, char **argv) {
     ("help,h", "Produce help message.")
     ("input,i", po::value<std::vector<std::string>>(&input),
      "Input file(s) containing sequence of characters. "
-     "If no file is specified, letdraw reads from STDIN."
+     "If no file is specified, letdraw reads from STDIN. "
      "Input file(s) may be specified positionally "
      "(without flags)")
     ("output,o", po::value<std::string>(&output),
