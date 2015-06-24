@@ -23,9 +23,9 @@
 #include <iterator>
 
 template <class T, class State>
-class Autom {
+class autom {
 public:
-  Autom():repeatCount(1) {}
+  autom():repeatCount(1) {}
 
   State& state() {
     return current;

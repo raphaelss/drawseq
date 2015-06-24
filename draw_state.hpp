@@ -14,18 +14,26 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#ifndef DRAWSTATE_HPP
-#define DRAWSTATE_HPP
+#ifndef DRAW_STATE_HPP_INCLUDED
+#define DRAW_STATE_HPP_INCLUDED
 
-struct DrawState {
-  DrawState(double x_ = 0, double y_ = 0, int angle_ = 0);
+class draw_state {
+public:
+  draw_state(double x = 0, double y = 0, int angle = 0);
 
   void move(double n);
   void turn(int n);
 
-  double x;
-  double y;
-  int angle;
+  void move_to_origin();
+  void reset();
+
+  double x() const;
+  double y() const;
+
+private:
+  double _x;
+  double _y;
+  int _angle;
 };
 
 #endif // DRAWSTATE_HPP

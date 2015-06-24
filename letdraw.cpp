@@ -20,7 +20,7 @@
 #include <vector>
 #include <stdexcept>
 #include <boost/program_options.hpp>
-#include "drawingautom.hpp"
+#include "drawing_autom.hpp"
 
 namespace po = boost::program_options;
 
@@ -30,7 +30,7 @@ int main(int argc, char **argv) {
   double width, height, originX, originY, scale, lineWidth;
   std::vector<std::string> input;
   std::string output, capS;
-  DrawingAutom::LineCap cap;
+  drawing_autom::LineCap cap;
   po::options_description descr("letdraw - command-line drawing tool");
   descr.add_options()
     ("help,h", "Produce help message.")
@@ -95,17 +95,17 @@ int main(int argc, char **argv) {
     return 1;
   }
   if (capS == "default") {
-    cap = DrawingAutom::DEFAULT_CAP;
+    cap = drawing_autom::DEFAULT_CAP;
   } else if (capS == "round") {
-    cap = DrawingAutom::ROUND_CAP;
+    cap = drawing_autom::ROUND_CAP;
   } else if (capS == "square") {
-    cap = DrawingAutom::SQUARE_CAP;
+    cap = drawing_autom::SQUARE_CAP;
   } else {
     std::cout << "letdraw: unsupported line_cap value. Supported "
                  "values: default, round and square\n";
     return 1;
   }
-  DrawingAutom da(width, height, originX, originY, scale, lineWidth, cap);
+  drawing_autom da(width, height, originX, originY, scale, lineWidth, cap);
   if (!vm.count("input")) {
     da.processStream(std::cin);
   } else {

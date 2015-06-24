@@ -14,17 +14,17 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#ifndef DRAWINGAUTOM_HPP
-#define DRAWINGAUTOM_HPP
+#ifndef DRAWING_AUTOM_HPP_INCLUDED
+#define DRAWING_AUTOM_HPP_INCLUDED
 #include "autom.hpp"
-#include "drawstate.hpp"
+#include "draw_state.hpp"
 #include <Magick++.h>
 
-class DrawingAutom : public Autom<DrawingAutom, DrawState> {
+class drawing_autom : public autom<drawing_autom, draw_state> {
 public:
   enum LineCap {DEFAULT_CAP, ROUND_CAP, SQUARE_CAP};
 
-  DrawingAutom(double width, double height, double originX,
+  drawing_autom(double width, double height, double originX,
                double originY, double scale, double line_width,
                LineCap cap);
   bool instruction(int ch);

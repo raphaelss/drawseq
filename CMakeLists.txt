@@ -13,7 +13,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DMAGICKCORE_HDRI_ENABLE=0 -DMAGICKCORE_
 find_package(Boost 1.58 COMPONENTS program_options REQUIRED)
 include_directories(${Boost_INCLUDE_DIR})
 
-add_executable(letdraw letdraw.cpp drawstate.cpp drawingautom.cpp)
+add_executable(letdraw letdraw.cpp draw_state.cpp drawing_autom.cpp)
 
 target_link_libraries(letdraw ${ImageMagick_LIBRARIES})
 target_link_libraries(letdraw ${Boost_LIBRARIES} )

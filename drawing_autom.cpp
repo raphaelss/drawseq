@@ -14,15 +14,15 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#include "drawingautom.hpp"
+#include "drawing_autom.hpp"
 #include <iostream>
 #include <stdexcept>
 
-void DrawingAutom::initDrawingSystem() {
+void drawing_autom::initDrawingSystem() {
   Magick::InitializeMagick(nullptr);
 }
 
-DrawingAutom::DrawingAutom(double width, double height, double originX,
+drawing_autom::drawing_autom(double width, double height, double originX,
                            double originY, double scale, double line_width,
                            LineCap cap)
   :dCount(0), img(Magick::Geometry(width,height), Magick::Color("white")),
@@ -37,7 +37,7 @@ DrawingAutom::DrawingAutom(double width, double height, double originX,
      Magick::DrawableStrokeLineCap(convertCap(cap))
    }) {}
 
-bool DrawingAutom::instruction(int ch) {
+bool drawing_autom::instruction(int ch) {
   switch(ch) {
   case 'd':
     line();
@@ -77,34 +77,31 @@ bool DrawingAutom::instruction(int ch) {
 }
 
 
-void DrawingAutom::line() {
+void drawing_autom::line() {
   dCount += repeatCount;
 }
 
-void DrawingAutom::move() {
+void drawing_autom::move() {
   state().move(repeatCount);
 }
 
-void DrawingAutom::turnCounterclockwise() {
+void drawing_autom::turnCounterclockwise() {
   state().turn(repeatCount);
 }
 
-void DrawingAutom::turnClockwise() {
+void drawing_autom::turnClockwise() {
   state().turn(-repeatCount);
 }
 
-void DrawingAutom::moveToOrigin() {
-  DrawState& ds = state();
-  ds.x = 0;
-  ds.y = 0;
+void drawing_autom::moveToOrigin() {
+  state().move_to_origin();
 }
 
-void DrawingAutom::reset() {
-  moveToOrigin();
-  state().angle = 0;
+void drawing_autom::reset() {
+  state().reset();
 }
 
-void DrawingAutom::render(const std::string& path) {
+void drawing_autom::render(const std::string& path) {
   flushDraw();
   img.draw(drawInstructions);
   try {
@@ -114,19 +111,19 @@ void DrawingAutom::render(const std::string& path) {
   }
 }
 
-void DrawingAutom::flushDraw() {
+void drawing_autom::flushDraw() {
   if (dCount) {
-    DrawState &st = state();
-    const double x1 = st.x, y1 = st.y;
+    draw_state &st = state();
+    const double x1 = st.x(), y1 = st.y();
     st.move(dCount);
     drawInstructions.push_back(
-      Magick::DrawableLine(x1, y1, st.x, st.y)
+      Magick::DrawableLine(x1, y1, st.x(), st.y())
     );
     dCount = 0;
   }
 }
 
-Magick::LineCap DrawingAutom::convertCap(DrawingAutom::LineCap cap) {
+Magick::LineCap drawing_autom::convertCap(drawing_autom::LineCap cap) {
   switch (cap) {
   case ROUND_CAP:
     return Magick::RoundCap;
